@@ -100,6 +100,7 @@ def main() -> None:
         "--no-first-run",
         "--no-default-browser-check",
         "--start-maximized",
+        "--window-name=ChromeForTesting",
         # 默认不加 --mute-audio：用户希望听到视频原声。仅当显式 --mute 时才静音。
         *(["--mute-audio"] if args.mute else []),
         start_url,  # 作为位置参数传入，Chrome 会直接打开该 URL

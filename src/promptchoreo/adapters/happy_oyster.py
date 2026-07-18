@@ -334,6 +334,11 @@ class HappyOysterAdapter(SiteAdapter):
                 t = await self._get_page_timer(page)
             except Exception:
                 t = None
+            # 检测生成失败弹窗，直接跳出等外部重试
+            body = await page.evaluate("() => document.body.innerText || ''")
+            if "无法生成" in body or "生成失败" in body or "无法播放" in body:
+                print("[DEBUG] 检测到生成失败，跳出等待", file=sys.stderr)
+                return False
             if t is not None:
                 if last is None:
                     last = t
