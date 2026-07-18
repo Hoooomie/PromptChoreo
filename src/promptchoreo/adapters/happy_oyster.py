@@ -439,28 +439,30 @@ class HappyOysterAdapter(SiteAdapter):
 
             await asyncio.sleep(poll_interval)
 
-        # 收尾：等通知 → 等 t 秒 → Pause → 停留验证
-        interval = targets[1][0] - targets[0][0] if len(targets) >= 2 else (end_delay or 10.0)
+        # ── 收尾：等待 end_delay 后同时结束生成和录屏（背靠背，不留空隙） ──
+        # 尾巴优先 end_delay（用户清单里设定的"最后一条注入后继续录制的秒数"），
+        # end_delay 为 0 / 未设时才回退到事件间隔。
+        tail = (
+            end_delay if end_delay and end_delay > 0
+            else (targets[1][0] - targets[0][0] if len(targets) >= 2 else 10.0)
+        )
 
         last_prompt = targets[-1][1]
         await self._wait_for_notification(page, last_prompt)
 
-        print(f"[DEBUG] 等待 {interval:.0f}s 后 Pause", file=sys.stderr)
-        await asyncio.sleep(interval)
+        print(f"[DEBUG] 等待 end_delay={end_delay} → tail={tail:.0f}s 后同时结束录屏和生成",
+              file=sys.stderr)
+        await asyncio.sleep(tail)
 
-        print("[DEBUG] 点 Pause 结束生成", file=sys.stderr)
+        # 先停录屏 → 立刻点 Pause 结束生成（背靠背，不 sleep）
+        print("[DEBUG] 停止录屏 → 立刻 Pause 结束生成", file=sys.stderr)
+        await self._recorder_stop(page)
         try:
             pause_btn = page.locator(self.SELECTORS["pause_button"])
             await pause_btn.first.click(timeout=5000)
             self.pause_monotonic = time.monotonic()
         except Exception:
             pass
-        # 停止外部录屏（EV录屏等），幂等
-        await self._recorder_stop(page)
-        await asyncio.sleep(1)
-
-        print(f"[DEBUG] Pause 完成，停留 {interval:.0f}s 供验证", file=sys.stderr)
-        await asyncio.sleep(interval)
 
     async def _wait_for_notification(
         self, page: Page, prompt: str,

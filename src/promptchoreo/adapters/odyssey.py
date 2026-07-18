@@ -235,6 +235,7 @@ class OdysseyAdapter(SiteAdapter):
             pass
 
     async def teardown(self, page: Page) -> None:
+        """生成完成：先停录屏 → 立刻点 X 关闭当前会话（背靠背，不留空隙）。"""
         await self._recorder_stop(page)
         await self._reset_to_input(page)
         self.stop_monotonic = time.monotonic()

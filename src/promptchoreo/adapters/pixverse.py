@@ -253,16 +253,19 @@ class PixVerseAdapter(SiteAdapter):
         else:
             raise RuntimeError(f"等待生成页超时 {self._max_queue_wait}s")
 
-        await asyncio.sleep(3)
+        # 生成页刚就绪，给 UI 一点时间稳定（视频可能已经开始播了）
+        await asyncio.sleep(1)
         # 测出真正的视频内容包围盒，作为裁剪区（去掉周边 UI）
         await self._detect_content_region(page)
         # 确保 Publish World Exploration 开启（开启后可直接下载原视频）
         await self._ensure_publish_on(page)
 
-        # 等视频真正开始播放（<video>.currentTime 递增）才开录，绝不录加载死屏
-        await self._wait_for_playback(page)
-        # 播放开始后 hover 画面并点击 🎵 关闭配乐；此时浮层按钮才稳定出现。
+        # 在等视频确认播放之前，先把 BGM hover/点击做了——这项操作比较耗时
+        # （hover 视频 → 等浮层 → 点 🎵），正好跟视频加载并行，不会让录屏起步更晚。
         await self._toggle_bgm_off(page)
+
+        # 等视频真正开始播放（<video>.currentTime 有值且非零），确认后立刻开录
+        await self._wait_for_playback(page)
         self.generation_start_monotonic = time.monotonic()
         start_vt = await self._get_video_time(page)
         print(f"[DEBUG] 录屏开始：视频时钟={start_vt}（以此刻为录制起点）", file=sys.stderr)
@@ -347,6 +350,14 @@ class PixVerseAdapter(SiteAdapter):
             t = await self._get_video_time(page)
             if t is not None:
                 if last is None:
+                    # 第一次读到时钟：如果已经跑过 0.5s 以上，说明 BGM hover 期间
+                    # 视频早已开始播放，无需再等递增，直接确认并开录。
+                    if t > 0.5:
+                        print(
+                            f"[DEBUG] 视频已播放 {t:.1f}s（>0.5s），直接确认并开录",
+                            file=sys.stderr,
+                        )
+                        return True
                     last = t
                     print(f"[DEBUG] 视频时钟出现: {t:.1f}s（等待递增确认播放）", file=sys.stderr)
                 elif t > last + 0.05:
@@ -435,11 +446,21 @@ class PixVerseAdapter(SiteAdapter):
             tail = 10.0
         print(
             f"[DEBUG] 注入完成，最后一条在视频时钟 {targets[-1][0]:.0f}s；"
-            f"按 end_delay={end_delay} 继续录制 {tail:.0f}s 后停止",
+            f"等待 end_delay={end_delay} → tail={tail:.0f}s 后同时结束录屏和生成",
             file=sys.stderr,
         )
         await asyncio.sleep(tail)
+
+        # 先停录屏 → 立刻点 Leave 结束生成（背靠背，不 sleep）
+        print("[DEBUG] 停止录屏 → 立刻点 Leave 结束生成", file=sys.stderr)
         await self._recorder_stop(page)
+        try:
+            leave_btn = page.locator(self.SELECTORS["leave_button"]).first
+            if await leave_btn.is_visible(timeout=3000):
+                await leave_btn.click(timeout=5000)
+                print("[DEBUG] 已点 Leave，生成结束", file=sys.stderr)
+        except Exception as e:
+            print(f"[DEBUG] Leave 点击失败: {e}", file=sys.stderr)
         # 录制窗口诊断：视频时钟起止 + 墙钟时长，便于核对"录制是否对齐"
         try:
             end_vt = await self._get_video_time(page)

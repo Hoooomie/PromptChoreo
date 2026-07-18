@@ -2,22 +2,20 @@
 # -*- coding: utf-8 -*-
 """裁剪 PixVerse 原始录屏 -> 成片。
 
-输入: video/pv  (Playwright 直接录制的原始 webm，未裁剪)
-输出: tvideo/pv (按 PixVerse 内容区裁剪后的 mp4)
-
-PixVerse 播放器四周常有黑/暗边与工具栏，用 cropdetect 自动检测内容包围盒裁剪，
-参数与 HappyOyster 类似（limit=30, round=16），但采样点不同。与另外两个脚本
-相互独立，裁剪参数各自可调。
+输入: outputs/video/pv  (Playwright 直接录制的原始 webm，未裁剪)
+输出: outputs/tvideo/pv (按 PixVerse 内容区裁剪后的 mp4)
 
 用法:
     python scripts/trim_pixverse.py
-    python scripts/trim_pixverse.py --input video/pv --output tvideo/pv
-    python scripts/trim_pixverse.py --crop 2560:1440:0:0
-    python scripts/trim_pixverse.py --ss 2 --to 75
+    python scripts/trim_pixverse.py --input outputs/video/pv --output outputs/tvideo/pv
+    python scripts/trim_pixverse.py --crop W:H:X:Y
+    python scripts/trim_pixverse.py --ss 1 --to 120
 """
+
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import re
 import subprocess
@@ -26,11 +24,21 @@ import sys
 CONFIG = {
     "input": "outputs/video/pv",
     "output": "outputs/tvideo/pv",
-    "limit": 30,          # cropdetect 亮度阈值（PixVerse 四周有暗边/工具栏）
-    "round": 16,          # 裁剪尺寸对齐
-    "samples": [5, 15, 25],   # 在视频这些秒处采样（跳过开场加载画面）
+    "limit": 24,
+    "round": 2,
+    "samples": [3, 10, 20],
     "site": "PixVerse",
 }
+
+# ── 裁剪参数（两步法） ──
+# 第 1 步：削掉顶部浏览器栏（白色 Chrome 地址栏/标签页），
+#         然后视频在剩余区域里自行定位。
+# 第 2 步：按比例裁视频，Y 偏移独立可调。
+CHROME_TOP_RATIO = 0.08     # 浏览器栏高度 / 屏幕高（先削掉）
+PV_VIDEO_W_RATIO = 0.48     # 视频宽 / 屏幕宽
+PV_VIDEO_H_RATIO = 0.40     # 视频高 / 屏幕高
+PV_VIDEO_Y_RATIO = 0.20     # 视频左上角 Y / 屏幕高（居中 = (1-H_RATIO)/2 ≈ 0.30；
+                             # 偏上则减小此值，偏下则加大）
 
 VIDEO_EXTS = (".webm", ".mp4", ".mkv", ".mov", ".avi")
 
@@ -44,12 +52,14 @@ def get_ffmpeg() -> str:
 
 
 def get_video_size(ffmpeg: str, video: str):
-    """解析视频分辨率 (width, height)，失败返回 None。"""
     try:
         proc = subprocess.run(
-            [ffmpeg, "-i", video], capture_output=True, text=True, encoding="utf-8", timeout=30
+            [ffmpeg, "-i", video], capture_output=True, text=True,
+            encoding="utf-8", timeout=30
         )
-        m = re.search(r"Stream #\d+:\d+.*?Video:.*?(\d{2,5})x(\d{2,5})", proc.stderr)
+        m = re.search(
+            r"Stream #\d+:\d+.*?Video:.*?(\d{2,5})x(\d{2,5})", proc.stderr
+        )
         if m:
             return int(m.group(1)), int(m.group(2))
     except Exception:
@@ -58,7 +68,7 @@ def get_video_size(ffmpeg: str, video: str):
 
 
 def detect_crop(ffmpeg: str, video: str, samples, limit, round_n):
-    """在多个采样点跑 cropdetect，返回面积最小（最紧贴内容）的包围盒 W:H:X:Y。"""
+    """cropdetect 兜底：在多个采样点跑，返回面积最小的包围盒 W:H:X:Y。"""
     crops = []
     for sp in samples:
         cmd = [
@@ -67,7 +77,10 @@ def detect_crop(ffmpeg: str, video: str, samples, limit, round_n):
             "-f", "null", "-",
         ]
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=60)
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True,
+                encoding="utf-8", timeout=60,
+            )
         except Exception:
             continue
         for line in proc.stderr.splitlines():
@@ -88,9 +101,28 @@ def even(n: int) -> int:
     return n if n % 2 == 0 else n - 1
 
 
+def fixed_crop(width: int, height: int) -> str:
+    """两步裁：先削浏览器栏，再按比例裁视频（Y 偏移独立可调）。返回 ffmpeg 滤镜链。"""
+    # 第 1 步：削顶部浏览器栏
+    top = even(int(height * CHROME_TOP_RATIO))
+    # 第 2 步：剩余区域内裁视频，X 居中，Y 按 PV_VIDEO_Y_RATIO 可调
+    vw = even(int(width * PV_VIDEO_W_RATIO))
+    vh = even(int(height * PV_VIDEO_H_RATIO))
+    rem_h = height - top          # 削掉栏之后的高度
+    vx = even((width - vw) // 2)  # 水平居中
+    vy = even(int(height * PV_VIDEO_Y_RATIO))  # Y 偏移（不再自动居中）
+
+    strip = f"crop={width}:{rem_h}:0:{top}"          # 削栏
+    zoom = f"crop={vw}:{vh}:{vx}:{vy}"               # 裁视频
+    return f"{strip},{zoom}"
+
+
 def _run(ffmpeg, cmd, timeout=600):
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=timeout)
+        return subprocess.run(
+            cmd, capture_output=True, text=True,
+            encoding="utf-8", timeout=timeout,
+        )
     except subprocess.TimeoutExpired:
         return None
 
@@ -98,8 +130,11 @@ def _run(ffmpeg, cmd, timeout=600):
 def process(ffmpeg, src, dst, crop, ss, to):
     vf = None
     if crop:
-        w, h, x, y = [even(int(v)) for v in crop]
-        vf = f"crop={w}:{h}:{x}:{y}"
+        if isinstance(crop, str):
+            vf = crop  # 直接使用滤镜链（两步裁等）
+        else:
+            w, h, x, y = [even(int(v)) for v in crop]
+            vf = f"crop={w}:{h}:{x}:{y}"
 
     cmd = [ffmpeg, "-y"]
     if ss is not None:
@@ -109,8 +144,11 @@ def process(ffmpeg, src, dst, crop, ss, to):
         cmd += ["-t", str(max(0.1, to - (ss or 0)))]
     if vf:
         cmd += ["-vf", vf]
-    cmd += ["-c:v", "libx264", "-crf", "18", "-preset", "medium",
-            "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", dst]
+    cmd += [
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart",
+        dst,
+    ]
 
     proc = _run(ffmpeg, cmd)
     if proc is None:
@@ -131,7 +169,10 @@ def main():
     ap = argparse.ArgumentParser(description=f"裁剪 {CONFIG['site']} 录屏")
     ap.add_argument("--input", default=CONFIG["input"])
     ap.add_argument("--output", default=CONFIG["output"])
-    ap.add_argument("--crop", default=None, help="手动裁剪区 W:H:X:Y，跳过自动检测")
+    ap.add_argument(
+        "--crop", default=None,
+        help="手动裁剪区 W:H:X:Y，跳过固定比例与自动检测",
+    )
     ap.add_argument("--ss", type=float, default=None, help="起始秒（时间裁剪）")
     ap.add_argument("--to", type=float, default=None, help="结束秒（时间裁剪）")
     args = ap.parse_args()
@@ -142,7 +183,9 @@ def main():
     os.makedirs(args.output, exist_ok=True)
 
     ffmpeg = get_ffmpeg()
-    files = sorted(f for f in os.listdir(args.input) if f.lower().endswith(VIDEO_EXTS))
+    files = sorted(
+        f for f in os.listdir(args.input) if f.lower().endswith(VIDEO_EXTS)
+    )
     if not files:
         print(f"[提示] {args.input} 下没有视频文件")
         return
@@ -162,17 +205,27 @@ def main():
             crop = tuple(args.crop.split(":"))
             print(f"    使用手动裁剪区: {args.crop}")
         else:
-            crop = detect_crop(ffmpeg, src, CONFIG["samples"], CONFIG["limit"], CONFIG["round"])
-            if crop:
-                w, h, x, y = crop
-                size = get_video_size(ffmpeg, src)
-                if size and w >= size[0] - 4 and h >= size[1] - 4:
-                    print(f"    检测为全屏({w}x{h})，无需裁剪，直接转码")
-                    crop = None
-                else:
-                    print(f"    自动裁剪区: {w}:{h}:{x}:{y}")
+            size = get_video_size(ffmpeg, src)
+            if size:
+                crop = fixed_crop(size[0], size[1])
+                top = even(int(size[1] * CHROME_TOP_RATIO))
+                vw = even(int(size[0] * PV_VIDEO_W_RATIO))
+                vh = even(int(size[1] * PV_VIDEO_H_RATIO))
+                print(
+                    f"    两步裁剪: 削顶栏{top}px → 裁视频{vw}x{vh}居中  "
+                    f"(源 {size[0]}x{size[1]})"
+                )
             else:
-                print("    未检测到裁剪区，直接转码")
+                print("    无法解析分辨率，回退 cropdetect")
+                crop = detect_crop(
+                    ffmpeg, src, CONFIG["samples"],
+                    CONFIG["limit"], CONFIG["round"],
+                )
+                if crop:
+                    w, h, x, y = crop
+                    print(f"    自动裁剪区: {w}x{h}@({x},{y})")
+                else:
+                    print("    未检测到裁剪区，直接转码")
 
         ok = process(ffmpeg, src, dst, crop, args.ss, args.to)
         print("    [完成]" if ok else "    [失败]")
