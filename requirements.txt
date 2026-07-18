@@ -1,0 +1,6 @@
+playwright>=1.40
+pyyaml>=6.0
+click>=8.1
+rich>=13.0
+keyboard>=0.13.5
+pyautogui>=0.9.54

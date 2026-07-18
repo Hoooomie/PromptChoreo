@@ -1,0 +1,49 @@
+{
+  "site": "odyssey",
+  "videos": [
+    {
+      "name": "odyssey_test_01_cat",
+      "initial_prompt": "A cat on a rooftop at sunset",
+      "end_delay": 10,
+      "recorder": {
+        "enabled": true,
+        "start_hotkey": "ctrl+f1",
+        "stop_hotkey": "ctrl+f2"
+      },
+      "events": [
+        { "time": 10, "prompt": "The cat starts walking along the rooftop", "label": "walk" },
+        { "time": 20, "prompt": "Add a bird flying by in the distance", "label": "bird" },
+        { "time": 30, "prompt": "Make it start raining gently", "label": "rain" }
+      ]
+    },
+    {
+      "name": "odyssey_test_02_dog",
+      "initial_prompt": "A dog running through a quiet forest",
+      "end_delay": 10,
+      "recorder": {
+        "enabled": true,
+        "start_hotkey": "ctrl+f1",
+        "stop_hotkey": "ctrl+f2"
+      },
+      "events": [
+        { "time": 8, "prompt": "The dog stops by a stream", "label": "stop" },
+        { "time": 18, "prompt": "A deer appears in the background", "label": "deer" },
+        { "time": 28, "prompt": "Sunlight breaks through the trees", "label": "light" }
+      ]
+    },
+    {
+      "name": "odyssey_test_03_city",
+      "initial_prompt": "A neon city street at night, light rain",
+      "end_delay": 10,
+      "recorder": {
+        "enabled": true,
+        "start_hotkey": "ctrl+f1",
+        "stop_hotkey": "ctrl+f2"
+      },
+      "events": [
+        { "time": 12, "prompt": "A car drives past slowly", "label": "car" },
+        { "time": 24, "prompt": "Reflections on the wet road glow", "label": "reflect" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+# Odyssey 交互模拟时间轴
+# 流程：
+#   1. initial_prompt 启动模拟 → 等待排队 → 模拟就绪后计时从 00:00 开始
+#   2. 按 events 中定义的时间点注入交互指令
+#   3. 最后一个事件后等待 end_delay 秒再停止录制
+
+initial_prompt: "A cat on a rooftop at sunset"
+end_delay: 10
+
+# 外部录屏（EV录屏等），不需要时删掉整个 recorder 块即可
+recorder:
+  enabled: true
+  start_hotkey: "ctrl+f1"
+  stop_hotkey: "ctrl+f2"
+
+events:
+  - time: 10
+    prompt: "The cat starts walking along the rooftop"
+    label: "walk"
+
+  - time: 20
+    prompt: "Add a bird flying by in the distance"
+    label: "bird"
+
+  - time: 30
+    prompt: "Make it start raining gently"
+    label: "rain"

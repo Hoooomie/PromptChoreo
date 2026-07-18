@@ -1,0 +1,28 @@
+# Happy Oyster Directing Mode 时间轴
+# 参数：t=10（注入间隔），message_cnt=3（不含初始）
+# 流程：
+#   1. initial_prompt 启动生成 → 等 100% → 视频从 00:00 开始
+#   2. t=10/20/30 按页面计时器精准注入指令
+#   3. 最后一条后 → 等通知弹窗出现并消失 → 等 t 秒 → Pause → 停留 t 秒验证
+
+initial_prompt: "A dog is running."
+end_delay: 10
+
+# 外部录屏（EV录屏等），不需要时删掉 recorder 块即可
+recorder:
+  enabled: true
+  start_hotkey: "ctrl+f1"
+  stop_hotkey: "ctrl+f2"
+
+events:
+  - time: 10
+    prompt: "The dog jumps across a river."
+    label: "注入1"
+
+  - time: 20
+    prompt: "It stops and waves its tail."
+    label: "注入2"
+
+  - time: 30
+    prompt: "It runs away."
+    label: "注入3"

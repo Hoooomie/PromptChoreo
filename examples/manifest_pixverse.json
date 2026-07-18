@@ -1,0 +1,39 @@
+{
+  "site": "pixverse",
+  "max_load_wait": 600,
+  "videos": [
+    {
+      "name": "pixverse_test_01_cat",
+      "initial_prompt": "A cat on a rooftop at sunset, gentle cinematic lighting",
+      "end_delay": 15,
+      "events": [
+        { "time": 10, "prompt": "The cat turns its head to look at the camera" },
+        { "time": 20, "prompt": "A soft wind blows through its fur" },
+        { "time": 30, "prompt": "The sun slowly dips below the skyline" }
+      ],
+      "recorder": { "enabled": true, "start_hotkey": "ctrl+f1", "stop_hotkey": "ctrl+f2" }
+    },
+    {
+      "name": "pixverse_test_02_dog",
+      "initial_prompt": "A dog running through a quiet forest in the morning",
+      "end_delay": 15,
+      "events": [
+        { "time": 10, "prompt": "Sunlight breaks through the trees" },
+        { "time": 20, "prompt": "The dog stops to drink from a stream" },
+        { "time": 30, "prompt": "Birds scatter into the sky" }
+      ],
+      "recorder": { "enabled": true, "start_hotkey": "ctrl+f1", "stop_hotkey": "ctrl+f2" }
+    },
+    {
+      "name": "pixverse_test_03_city",
+      "initial_prompt": "A neon city street at night, light rain, reflective pavement",
+      "end_delay": 15,
+      "events": [
+        { "time": 10, "prompt": "A tram glides past with glowing windows" },
+        { "time": 20, "prompt": "Reflections ripple across the wet road" },
+        { "time": 30, "prompt": "Distant fireworks bloom over the skyline" }
+      ],
+      "recorder": { "enabled": true, "start_hotkey": "ctrl+f1", "stop_hotkey": "ctrl+f2" }
+    }
+  ]
+}

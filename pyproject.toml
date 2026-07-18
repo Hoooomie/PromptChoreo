@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "promptchoreo"
+version = "0.1.0"
+description = "按时序自动投喂 prompt 到流式视频生成网站"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.40",
+    "pyyaml>=6.0",
+    "click>=8.1",
+    "rich>=13.0",
+    # 外部录屏热键桥接（EV录屏等）：优先 keyboard（SendInput，全局热键最可靠），
+    # pyautogui 作为回退后端
+    "keyboard>=0.13.5",
+    "pyautogui>=0.9.54",
+]
+
+[project.scripts]
+promptchoreo = "promptchoreo.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

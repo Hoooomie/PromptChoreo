@@ -1,0 +1,44 @@
+{
+  "site": "happy_oyster",
+  "videos": [
+    {
+      "name": "odyssey_test_01_cat",
+      "initial_prompt": "A cat on a rooftop at sunset",
+      "end_delay": 10,
+      "recorder": {
+        "enabled": true,
+        "start_hotkey": "ctrl+f1",
+        "stop_hotkey": "ctrl+f2"
+      },
+      "events": [
+        { "time": 10, "prompt": "The cat starts walking along the rooftop", "label": "walk" }
+      ]
+    },
+    {
+      "name": "odyssey_test_02_dog",
+      "initial_prompt": "A dog running through a quiet forest",
+      "end_delay": 10,
+      "recorder": {
+        "enabled": true,
+        "start_hotkey": "ctrl+f1",
+        "stop_hotkey": "ctrl+f2"
+      },
+      "events": [
+        { "time": 10, "prompt": "The dog stops by a stream", "label": "stop" }
+      ]
+    },
+    {
+      "name": "odyssey_test_03_city",
+      "initial_prompt": "A neon city street at night, light rain",
+      "end_delay": 10,
+      "recorder": {
+        "enabled": true,
+        "start_hotkey": "ctrl+f1",
+        "stop_hotkey": "ctrl+f2"
+      },
+      "events": [
+        { "time": 10, "prompt": "A car drives past slowly", "label": "car" }
+      ]
+    }
+  ]
+}
