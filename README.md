@@ -144,12 +144,12 @@ promptchoreo run examples/timeline_happy_oyster.yaml --site happy_oyster --cdp h
 
 连接模式要点：
 
-- 全屏 / 窗口大小由你手动控制，工具不再强制 `--kiosk`，也不会在结束时退出你的全屏。
-- **声音默认开启**（启动脚本默认**不带** `--mute-audio`）。工具只通过**点击生成界面的 🎵 音乐符号**关闭配乐（背景音乐），**保留视频原声**——这样成片能录到视频本身的声音、不含配乐。**如果你确实想要彻底静音**，手动启动时加 `--mute`（如 `python scripts/launch_chrome_for_testing.py --site xxx --mute`），或在 `run`/`batch` 命令后加 `--mute`；改了启动脚本后必须重启 Chrome for Testing 才会生效。
+- 全屏 / 窗口大小手动控制。
+- **声音默认开启**（默认**不带** `--mute-audio`）。工具只通过**点击生成界面的 🎵 音乐符号**关闭配乐（背景音乐），**保留视频原声**——这样EV能录到视频本身的声音、不含配乐。**如果你确实想要彻底静音**，手动启动时加 `--mute`（如 `python scripts/launch_chrome_for_testing.py --site xxx --mute`），或在 `run`/`batch` 命令后加 `--mute`；改了启动脚本后必须重启 Chrome for Testing 才会生效。
 - **录屏只走外部 EV**（不再写 Playwright 内置原始视频，因为 CDP 模式下内置录制不可用）。EV 把成片存到你设的输出目录，裁剪时把 `trim_*.py` 的 `--input` 指过去即可（见第 5 节）。
-- `launch_chrome_for_testing.py` 用的就是 Playwright 自带的 Chrome for Testing，窗口标题是「Google Chrome for Testing」，EV 才好锁定。
+- `launch_chrome_for_testing.py` 打开Chrome for Testing，EV 需要锁定窗口「Google Chrome for Testing」。
 - 同一时间**只能有一个进程占用 user-data-dir**：连好之后就别再用普通 `promptchoreo run`（不带 `--cdp`）去开同一个站点，否则会报「目录被占用」。
-- **可连续跑多个 yaml**：跑完一个 yaml 后，工具会自动点生成画面右上角的 X 把站点复位到输入框界面，标签页保持打开。下一个 `promptchoreo run --cdp ...` 会复用这同一个标签页直接重开会话，无需重启浏览器——对 Odyssey 这种有时长限制的站点尤其省事。
+- **可连续跑多个 yaml**：跑完一个 yaml 后，工具会自动点生成画面右上角的 X 把站点复位到输入框界面，标签页保持打开。下一个 `promptchoreo run --cdp ...` 会复用这同一个标签页直接重开会话，无需重启浏览器。
 
 ### 4.2 批量模式：一个清单文件 = 多个视频
 
@@ -204,7 +204,7 @@ promptchoreo batch examples/manifest.json --cdp http://127.0.0.1:9222
 
 ## 5. 录制与成片
 
-运行时（默认模式）浏览器会自动 **kiosk 全屏**（最高清）。**默认不清浏览器层声音**：视频原声会保留，配乐由工具点击生成界面的 🎵 关闭。
+运行时（默认模式）浏览器会自动 **kiosk 全屏**（最高清）。**默认保留浏览器层声音**：视频原声会保留，配乐由工具点击生成界面的 🎵 关闭。
 想彻底静音就在 `run`/`batch` 后加 `--mute`。
 **连接模式**（`--cdp`）下窗口由你手动全屏、内置录制关闭，只走外部 EV。
 
