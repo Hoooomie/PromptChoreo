@@ -73,6 +73,11 @@ class BrowserBackend(Backend):
         self._context = None
         self._page = None
 
+    @property
+    def recording_start(self) -> float | None:
+        """适配器在 setup 阶段启动录屏的时刻（monotonic）。"""
+        return getattr(self.adapter, "generation_start_monotonic", None)
+
     async def start(self) -> None:
         from playwright.async_api import async_playwright
 

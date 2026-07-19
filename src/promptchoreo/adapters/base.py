@@ -289,158 +289,152 @@ class SiteAdapter(ABC):
             print(f"[DEBUG] JS 静音失败: {e}", file=sys.stderr)
 
     async def _toggle_bgm_off(self, page: Page) -> None:
-        """关闭生成界面的背景音乐（配乐）：点击界面上的音乐符号（🎵）。
+        """关闭生成界面的背景音乐（配乐）：hover 视频 → 点击 🎵。
 
-        与浏览器层 ``--mute-audio`` / JS 全静音不同，这里**只关配乐、保留视频原声**。
+        核心原则：**hover 后不做任何会移走鼠标的中间操作**。
+        控件栏是 hover-reveal 的，鼠标一离开视频区域就消失。
+        因此用一次 JS evaluate 原子完成"找按钮 + 点击"，不拆步骤。
+
         默认行为（config ``bgm_off`` 未设或为 True）即关闭配乐；设 ``bgm_off: false`` 可跳过。
-
-        由于各站音乐符号的精确选择器未知，采用「候选选择器 + 坐标兜底 + 诊断 dump」策略：
-
-        - 找到**唯一**匹配的按钮 → 按 ``aria-pressed`` 状态决定是否点击（避免重复切换）；
-        - 找不到按钮 → hover 视频后点击视频右下角的音乐符号位置（PixVerse 当前 UI）；
-        - 找到多个 → **不盲点**，dump 生成界面所有按钮供精确定位，WARN 跳过。
         """
         cfg = self.config or {}
         if cfg.get("bgm_off", True) is False:
             print("[DEBUG] 跳过关闭配乐（config bgm_off=false）", file=sys.stderr)
             return
 
-        # ── 先 hover 视频区域，让被隐藏的控件栏（含 🎵）显示 ──
-        # PixVerse 等站点的音乐符号在生成界面默认不可见，
-        # 只有鼠标移到视频画面区域时控件栏才浮出。
-        hovered = False
+        # ── 1. hover 视频中心，等控件栏浮出 ──
         video_box = None
         try:
             video = page.locator("video").first
             video_box = await video.bounding_box()
             if video_box:
-                # 移到视频中心（大多数站控件在中间浮出）
-                await page.mouse.move(
-                    video_box["x"] + video_box["width"] / 2,
-                    video_box["y"] + video_box["height"] / 2,
-                )
+                cx = video_box["x"] + video_box["width"] / 2
+                cy = video_box["y"] + video_box["height"] / 2
+                await page.mouse.move(cx, cy)
+                await asyncio.sleep(2)
+                print(f"[DEBUG-BGM] 已 hover 视频中心 ({cx:.0f},{cy:.0f})，等 2s", file=sys.stderr)
+            else:
+                print("[DEBUG-BGM] video bounding_box 为 None", file=sys.stderr)
+        except Exception as e:
+            print(f"[DEBUG-BGM] hover 视频失败: {e}", file=sys.stderr)
+
+        if not video_box:
+            print("[WARN] 无 video 边界，跳过关闭配乐", file=sys.stderr)
+            return
+
+        # ── 2. 原子操作：JS 在视频区域内找音乐按钮并点击 ──
+        # 不做中间鼠标移动（会令 overlay 消失）。JS 里直接 .click() 目标按钮。
+        vb = video_box
+        max_retries = int(cfg.get("bgm_retries", 5))
+        for attempt in range(max_retries):
+            result = await page.evaluate(
+                """(vb) => {
+                    // 在视频包围盒内、底部 25% 区域找所有可见的按钮/icon 按钮
+                    const v = document.querySelector('video');
+                    if (!v) return {ok: false, reason: 'no video'};
+                    const rects = [v.getBoundingClientRect()];
+                    // 也查 video 的父容器（overlay 可能挂在父 div 上）
+                    const parent = v.parentElement;
+                    if (parent) rects.push(parent.getBoundingClientRect());
+
+                    const buttons = Array.from(document.querySelectorAll(
+                        'button, [role="button"], [aria-label], [title]'
+                    ));
+                    const hits = [];
+                    for (const b of buttons) {
+                        const r = b.getBoundingClientRect();
+                        if (r.width < 5 || r.height < 5) continue;
+                        // 按钮中心是否在视频区域内
+                        const bx = r.x + r.width / 2;
+                        const by = r.y + r.height / 2;
+                        const inside = rects.some(vr =>
+                            bx >= vr.x && bx <= vr.x + vr.width &&
+                            by >= vr.y && by <= vr.y + vr.height
+                        );
+                        if (!inside) continue;
+                        // 只看底部 30% 区域（控件栏位置）
+                        const bottomZone = vb.y + vb.height * 0.70;
+                        if (by < bottomZone) continue;
+
+                        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+                        const title = (b.getAttribute('title') || '').toLowerCase();
+                        const txt = (b.innerText || '').toLowerCase().trim();
+                        const hasSvg = !!b.querySelector('svg');
+                        const pressed = b.getAttribute('aria-pressed');
+                        hits.push({
+                            tag: b.tagName, cls: String(b.className||'').slice(0,80),
+                            aria, title, txt: txt.slice(0,30), hasSvg, pressed,
+                            x: Math.round(bx), y: Math.round(by),
+                            w: Math.round(r.width), h: Math.round(r.height),
+                            el: b,  // 保留引用供点击
+                        });
+                    }
+
+                    if (hits.length === 0)
+                        return {ok: false, reason: 'no_buttons_in_bottom_zone', hitCount: 0};
+
+                    // 优先匹配 music/sound/audio/mute 关键词
+                    const kw = ['music','sound','audio','mute','volume','bgm','配乐','音乐'];
+                    let target = hits.find(h =>
+                        kw.some(k => h.aria.includes(k) || h.title.includes(k) || h.txt.includes(k))
+                    );
+                    // 没有关键词匹配 → 取最右下角的带 svg 的按钮（音乐符号通常在最右）
+                    if (!target) {
+                        const svgHits = hits.filter(h => h.hasSvg);
+                        if (svgHits.length > 0) {
+                            target = svgHits.reduce((a, b) =>
+                                (b.x + b.y) > (a.x + a.y) ? b : a
+                            );
+                        }
+                    }
+                    // 还没有 → 取最右下角的任意按钮
+                    if (!target) {
+                        target = hits.reduce((a, b) =>
+                            (b.x + b.y) > (a.x + a.y) ? b : a
+                        );
+                    }
+
+                    // 检查状态：如果 aria-pressed 已是 false（关闭态），跳过
+                    if (target.pressed === 'false') {
+                        return {ok: true, reason: 'already_off', target: target};
+                    }
+
+                    // 点击！
+                    target.el.click();
+                    return {ok: true, reason: 'clicked', target: target, hitCount: hits.length};
+                }""",
+                {"x": vb["x"], "y": vb["y"], "width": vb["width"], "height": vb["height"]},
+            )
+
+            # 清理 result 里无法序列化的 el 引用（JSON 序列化会失败）
+            if isinstance(result, dict) and "target" in result:
+                t = result["target"]
+                if isinstance(t, dict):
+                    t.pop("el", None)
+
+            print(f"[DEBUG-BGM] 尝试 {attempt+1}/{max_retries}: {result}", file=sys.stderr)
+
+            if isinstance(result, dict) and result.get("ok"):
+                reason = result.get("reason", "")
+                if reason == "already_off":
+                    print("[DEBUG] 配乐已处于关闭状态，跳过", file=sys.stderr)
+                    return
+                elif reason == "clicked":
+                    print("[DEBUG] 已点击音乐符号关闭配乐", file=sys.stderr)
+                    return
+
+            # 没找到按钮 → 重新 hover 视频中心（overlay 可能已消失），再试
+            if attempt < max_retries - 1:
+                cx = vb["x"] + vb["width"] / 2
+                cy = vb["y"] + vb["height"] / 2
+                await page.mouse.move(cx, cy)
                 await asyncio.sleep(1.5)
-                hovered = True
-                print("[DEBUG-BGM] 已 hover 视频中心，等待控件栏出现", file=sys.stderr)
-            else:
-                print("[DEBUG-BGM] video bounding_box 为 None，跳过 hover", file=sys.stderr)
-        except Exception as e:
-            print(f"[DEBUG-BGM] hover 视频失败（跳过）: {e}", file=sys.stderr)
 
-        # 诊断：dump 生成界面所有 button（含 aria-label/title/text/svg/aria-pressed），
-        # 便于在没有精确选择器时精确定位音乐符号。
-        try:
-            buttons = await page.evaluate(
-                """() => Array.from(document.querySelectorAll('button')).map(b => {
-                    const svg = b.querySelector('svg') ? 'svg' : '';
-                    const lbl = b.getAttribute('aria-label') || '';
-                    const title = b.getAttribute('title') || '';
-                    const txt = (b.innerText || '').trim().slice(0, 30);
-                    return {lbl, title, txt, svg, pressed: b.getAttribute('aria-pressed')};
-                })"""
-            )
-            music_like = [
-                b for b in buttons
-                if any(
-                    k in (b.get("lbl", "") + b.get("title", "") + b.get("txt", "")).lower()
-                    for k in ["music", "sound", "audio", "mute", "volume", "🎵", "♪"]
-                )
-            ]
-            print(
-                f"[DEBUG-BGM] hover={'OK' if hovered else 'SKIP'}，所有按钮数={len(buttons)}，"
-                f"疑似音乐/声音按钮={music_like}",
-                file=sys.stderr,
-            )
-        except Exception as e:
-            print(f"[DEBUG-BGM] 按钮 dump 失败: {e}", file=sys.stderr)
-
-        # 候选选择器：音乐 / 声音 / 音频 / mute 相关的按钮或带 title 的元素
-        candidates = [
-            "button[aria-label*='music' i]",
-            "button[aria-label*='sound' i]",
-            "button[aria-label*='audio' i]",
-            "button[aria-label*='mute' i]",
-            "[title*='music' i]",
-            "[title*='sound' i]",
-            "[title*='audio' i]",
-        ]
-
-        matched: list = []
-        for sel in candidates:
-            try:
-                loc = page.locator(sel)
-                if await loc.count() > 0 and await loc.first.is_visible(timeout=1500):
-                    matched.append((sel, loc.first))
-            except Exception:
-                continue
-
-        if len(matched) == 1:
-            sel, btn = matched[0]
-            try:
-                pressed = await btn.get_attribute("aria-pressed")
-                if pressed == "true":
-                    await btn.click(timeout=3000)
-                    print(f"[DEBUG] 已点击音乐符号关闭配乐（{sel}）", file=sys.stderr)
-                elif pressed == "false":
-                    print(f"[DEBUG] 配乐已处于关闭状态，跳过（{sel}）", file=sys.stderr)
-                else:
-                    # 状态未知：默认点击一次（用户确认符号当前是开的）
-                    await btn.click(timeout=3000)
-                    print(
-                        f"[DEBUG] 已点击音乐符号（状态未知，默认关闭一次，{sel}）",
-                        file=sys.stderr,
-                    )
-            except Exception as e:
-                print(f"[WARN] 点击音乐符号失败（{sel}）: {e}", file=sys.stderr)
-        elif len(matched) == 0:
-            if video_box:
-                # PixVerse 的音乐符号是 hover 后出现在视频右下角的圆形按钮。
-                # 它目前没有稳定可读的 aria/title，因此用视频包围盒内的相对坐标兜底。
-                # 默认偏移来自 16:9 生成页实测：距离右边/底边约 24px。
-                offset_x = float(cfg.get("bgm_button_offset_x", 24))
-                offset_y = float(cfg.get("bgm_button_offset_y", 24))
-                x = video_box["x"] + video_box["width"] - offset_x
-                y = video_box["y"] + video_box["height"] - offset_y
-                try:
-                    await page.mouse.move(x, y)
-                    await asyncio.sleep(0.6)
-                    target_info = await page.evaluate(
-                        """({x, y}) => {
-                            const el = document.elementFromPoint(x, y);
-                            if (!el) return null;
-                            const clickable = el.closest('button,[role="button"],[aria-label],[title]');
-                            const node = clickable || el;
-                            return {
-                                tag: node.tagName,
-                                cls: String(node.className || '').slice(0, 120),
-                                aria: node.getAttribute('aria-label') || '',
-                                title: node.getAttribute('title') || '',
-                                text: (node.innerText || '').trim().slice(0, 60),
-                            };
-                        }""",
-                        {"x": x, "y": y},
-                    )
-                    print(f"[DEBUG-BGM] 右下角点击目标={target_info}", file=sys.stderr)
-                    await page.mouse.click(x, y)
-                    print(
-                        f"[DEBUG] 已通过视频右下角坐标点击音乐符号关闭配乐 "
-                        f"(x={x:.0f}, y={y:.0f})",
-                        file=sys.stderr,
-                    )
-                except Exception as e:
-                    print(f"[WARN] 坐标兜底点击音乐符号失败: {e}", file=sys.stderr)
-            else:
-                print(
-                    "[WARN] 未找到音乐符号按钮（候选选择器均不匹配），且没有 video 边界，"
-                    "无法坐标兜底关闭配乐；请把上方 [DEBUG-BGM] 的疑似按钮信息发我以精确定位。",
-                    file=sys.stderr,
-                )
-        else:
-            print(
-                f"[WARN] 匹配到多个音乐符号候选（{[m[0] for m in matched]}），"
-                "为避免误点，暂未点击；请发 [DEBUG-BGM] 信息帮我锁定唯一选择器。",
-                file=sys.stderr,
-            )
+        print(
+            f"[WARN] {max_retries} 次尝试后仍未成功关闭配乐；"
+            "可能控件栏未稳定出现或音乐按钮不在视频底部区域。",
+            file=sys.stderr,
+        )
 
     async def _recorder_stop(self, page: Page) -> None:
         """如有外部录屏配置，发送停止热键到 OS + 退出全屏。"""

@@ -247,9 +247,18 @@ class FakeBgmMouse:
 
 
 class FakeBgmPage:
-    def __init__(self):
+    """模拟 hover + JS 原子点击流程。"""
+
+    def __init__(self, evaluate_result=None):
         self.mouse = FakeBgmMouse()
         self._video = FakeBgmVideo({"x": 100, "y": 50, "width": 800, "height": 450})
+        self._evaluate_result = evaluate_result or {
+            "ok": True,
+            "reason": "clicked",
+            "target": {"tag": "BUTTON", "cls": "music-btn", "aria": "music"},
+            "hitCount": 1,
+        }
+        self.evaluate_calls = 0
 
     def locator(self, sel):
         if sel == "video":
@@ -257,10 +266,12 @@ class FakeBgmPage:
         return FakeBgmEmptyLocator()
 
     async def evaluate(self, *a, **k):
-        return []
+        self.evaluate_calls += 1
+        return self._evaluate_result
 
 
-def test_toggle_bgm_off_fallback_clicks_video_bottom_right():
+def test_toggle_bgm_off_hovers_then_js_clicks():
+    """hover 视频中心 → JS 原子找到音乐按钮并点击。"""
     a = PixVerseAdapter({})
     page = FakeBgmPage()
 
@@ -270,5 +281,40 @@ def test_toggle_bgm_off_fallback_clicks_video_bottom_right():
     with patch("asyncio.sleep", _instant):
         asyncio.run(a._toggle_bgm_off(page))
 
+    # hover 视频中心 (100+400, 50+225) = (500, 275)
     assert page.mouse.moves[0] == (500, 275)
-    assert page.mouse.clicks == [(876.0, 476.0)]
+    # JS evaluate 被调用了（原子点击）
+    assert page.evaluate_calls >= 1
+
+
+def test_toggle_bgm_off_retries_when_no_button_found():
+    """JS 没找到按钮 → 重新 hover 重试。"""
+    a = PixVerseAdapter({})
+    page = FakeBgmPage(evaluate_result={"ok": False, "reason": "no_buttons_in_bottom_zone", "hitCount": 0})
+
+    async def _instant(*a, **k):
+        return
+
+    with patch("asyncio.sleep", _instant):
+        asyncio.run(a._toggle_bgm_off(page))
+
+    # 应该重试多次（默认 5 次）
+    assert page.evaluate_calls == 5
+
+
+def test_toggle_bgm_off_skips_when_already_off():
+    """aria-pressed=false → 配乐已关，跳过点击。"""
+    a = PixVerseAdapter({})
+    page = FakeBgmPage(evaluate_result={
+        "ok": True, "reason": "already_off",
+        "target": {"pressed": "false"},
+    })
+
+    async def _instant(*a, **k):
+        return
+
+    with patch("asyncio.sleep", _instant):
+        asyncio.run(a._toggle_bgm_off(page))
+
+    # 只调了一次 evaluate 就确认已关、退出
+    assert page.evaluate_calls == 1

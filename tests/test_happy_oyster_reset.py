@@ -132,7 +132,7 @@ def test_teardown_stops_recorder_and_resets():
 
 
 class FakePageTimer(FakePage):
-    """evaluate 按预设序列返回页面计时器值（None 表示无计时器）。"""
+    """evaluate 区分计时器查询与 body 文本查询，分别返回不同值。"""
 
     def __init__(self, seq):
         super().__init__()
@@ -140,11 +140,16 @@ class FakePageTimer(FakePage):
         self._i = 0
 
     async def evaluate(self, *a, **k):
-        if self._i < len(self._seq):
-            v = self._seq[self._i]
-            self._i += 1
-            return v
-        return self._seq[-1] if self._seq else None
+        # 计时器查询（_get_page_timer 的 JS 里包含 "REC" 关键字）→ 按序列返回
+        arg = a[0] if a else ""
+        if isinstance(arg, str) and "REC" in arg:
+            if self._i < len(self._seq):
+                v = self._seq[self._i]
+                self._i += 1
+                return v
+            return self._seq[-1] if self._seq else None
+        # body 文本查询 / 加载百分比查询 → 返回空字符串
+        return ""
 
 
 def test_wait_for_playback_true_on_increment():

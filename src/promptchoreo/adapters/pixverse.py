@@ -34,6 +34,7 @@ class PixVerseAdapter(SiteAdapter):
         self.config = config or {}
         self._session_started = False
         self._injections_done = False
+        self._video_offset: float = 0.0  # 录制起点视频时钟偏移
         self._last_pct: int | None = None
         self.generation_start_monotonic: float | None = None
         self.stop_monotonic: float | None = None
@@ -267,8 +268,15 @@ class PixVerseAdapter(SiteAdapter):
         # 等视频真正开始播放（<video>.currentTime 有值且非零），确认后立刻开录
         await self._wait_for_playback(page)
         self.generation_start_monotonic = time.monotonic()
-        start_vt = await self._get_video_time(page)
-        print(f"[DEBUG] 录屏开始：视频时钟={start_vt}（以此刻为录制起点）", file=sys.stderr)
+        start_vt = await self._get_video_time(page) or 0.0
+        # 记录录制开始时的视频时钟偏移——后续注入目标都是「相对录制起点」的时间，
+        # 所以注入循环中实际等待的是 video_offset + target_time。
+        self._video_offset = start_vt
+        print(
+            f"[DEBUG] 录屏开始：视频时钟={start_vt:.1f}s（以此为录制起点，"
+            f"注入偏移 +{start_vt:.1f}s）",
+            file=sys.stderr,
+        )
         self._session_started = True
         await self._recorder_start(page)
 
@@ -388,13 +396,15 @@ class PixVerseAdapter(SiteAdapter):
     async def _run_injection_loop(
         self, page: Page, events: list[dict], end_delay: float
     ) -> None:
-        """按视频时钟在精准时刻注入后续 prompt（镜像 Happy Oyster）。
+        """按视频时钟在精准时刻注入后续 prompt。
 
-        每 250ms 轮询 <video>.currentTime，当到达下一个目标时刻的 ±容差内时注入。
-        全部注入完成后等待 interval 秒（供内容沉淀），再停止外部录屏。
+        每 250ms 轮询 <video>.currentTime。注入目标时间 = _video_offset + target_time，
+        其中 _video_offset 是录制开始瞬间的视频时钟——保证「第 t 秒注入」里的 t
+        是相对录制起点的经过秒数，而不是视频的绝对播放时间。
         """
         tolerance = 0.8
         poll_interval = 0.25
+        offset = getattr(self, "_video_offset", 0.0)
         targets = sorted(
             [(float(e["time"]), str(e["prompt"])) for e in events],
             key=lambda x: x[0],
@@ -403,7 +413,7 @@ class PixVerseAdapter(SiteAdapter):
             print("[DEBUG] 无注入事件，跳过注入循环", file=sys.stderr)
             return
         print(
-            f"[DEBUG] 注入循环启动，共 {len(targets)} 个目标: "
+            f"[DEBUG] 注入循环启动（偏移 +{offset:.1f}s），共 {len(targets)} 个目标: "
             f"{[f'{t:.0f}s' for t, _ in targets]}（轮询 {poll_interval*1000:.0f}ms，容差 ±{tolerance:.0f}s）",
             file=sys.stderr,
         )
@@ -417,14 +427,17 @@ class PixVerseAdapter(SiteAdapter):
                 continue
 
             target_time, prompt = targets[idx]
-            if current >= target_time - tolerance:
+            # 实际触发时刻 = 录屏起点视频时钟 + 目标秒数
+            trigger_at = offset + target_time
+            if current >= trigger_at - tolerance:
                 if last_inject_at_target == target_time:
                     await asyncio.sleep(poll_interval)
                     continue
 
-                drift = current - target_time
+                drift = current - trigger_at
                 print(
-                    f"[DEBUG] 注入 t={target_time:.0f}s (视频时钟 {current:.1f}s，偏差 {drift:+.1f}s)",
+                    f"[DEBUG] 注入 t={target_time:.0f}s → 触发时钟={trigger_at:.1f}s "
+                    f"(当前视频={current:.1f}s，偏差 {drift:+.1f}s)",
                     file=sys.stderr,
                 )
                 await self._inject_command(page, prompt)

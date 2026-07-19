@@ -1,8 +1,8 @@
 {
-  "site": "happy_oyster",
+  "site": "pixverse",
   "videos": [
     {
-      "name": "odyssey_test_01_cat",
+      "name": "test_01_cat",
       "initial_prompt": "A cat on a rooftop at sunset",
       "end_delay": 10,
       "recorder": {
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "name": "odyssey_test_02_dog",
+      "name": "test_02_dog",
       "initial_prompt": "A dog running through a quiet forest",
       "end_delay": 10,
       "recorder": {
@@ -28,7 +28,7 @@
       ]
     },
     {
-      "name": "odyssey_test_03_city",
+      "name": "test_03_city",
       "initial_prompt": "A neon city street at night, light rain",
       "end_delay": 10,
       "recorder": {

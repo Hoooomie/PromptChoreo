@@ -20,6 +20,15 @@ class Backend(ABC):
     # 流式模型设为 True：首个事件完成后重置计时起点
     resets_clock: bool = False
 
+    @property
+    def recording_start(self) -> float | None:
+        """录制真正开始的 monotonic 时间。
+
+        若适配器在 setup 阶段已启动录屏，返回该时刻；
+        返回 None 时调度器用 start() 返回后的时刻作为基准。
+        """
+        return None
+
     @abstractmethod
     async def start(self) -> None:
         """初始化后端资源（启动浏览器、建立连接等）。"""

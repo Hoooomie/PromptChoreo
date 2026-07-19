@@ -45,7 +45,9 @@ class Scheduler:
         await self.backend.start()
 
         try:
-            start = time.monotonic()
+            # 如果适配器在 setup 期间已启动录屏，用录屏实际开始时刻作为调度基准；
+            # 否则以 backend.start() 返回后的时刻为基准。
+            start = self.backend.recording_start or time.monotonic()
 
             for i, event in enumerate(events):
                 if self._cancelled:
