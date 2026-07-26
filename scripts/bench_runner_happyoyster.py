@@ -536,8 +536,7 @@ def select_work_items(args):
             for filename in select_files(args)
         ]
 
-    duration_filter = 120 if args.only_120 else None
-    return filter_work_items_by_duration(work_items, duration_filter)
+    return filter_work_items_by_duration(work_items, args.duration_filter)
 
 
 async def main_async(args):
@@ -675,12 +674,16 @@ def main():
         default="pilot",
         help="pilot（默认）| remain | all",
     )
-    parser.add_argument(
-        "--120",
-        dest="only_120",
-        action="store_true",
-        help="只运行当前 phase 中 duration_s=120 的任务",
-    )
+    duration_group = parser.add_mutually_exclusive_group()
+    for duration_s in (30, 60, 120):
+        duration_group.add_argument(
+            f"--{duration_s}",
+            dest="duration_filter",
+            action="store_const",
+            const=duration_s,
+            help=f"只运行当前 phase 中 duration_s={duration_s} 的任务",
+        )
+    parser.set_defaults(duration_filter=None)
     parser.add_argument(
         "--subset",
         nargs="?",

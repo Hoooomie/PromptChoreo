@@ -138,7 +138,7 @@ python scripts/bench_runner_happyoyster.py --phase remain
 python scripts/bench_runner_odyssey.py --phase remain
 python scripts/bench_runner.py --phase remain
 
-# Remain 中全部 120 秒任务（160 个，仍写入原 remain 目录）
+# Remain 按时长筛选（--30 / --60 / --120 三选一，仍写入原 remain 目录）
 python scripts/bench_runner_happyoyster.py --phase remain --120
 python scripts/bench_runner_odyssey.py --phase remain --120
 python scripts/bench_runner.py --phase remain --120

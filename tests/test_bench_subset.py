@@ -91,12 +91,19 @@ def test_subset_jobs_materialize_yaml_and_output_paths(tmp_path):
 
 def test_filter_work_items_by_duration():
     work_items = [
+        ("A_A-30.yaml", {"duration_s": 30}),
         ("A_A-60.yaml", {"duration_s": 60}),
         ("A_A-120.yaml", {"duration_s": 120}),
         ("missing.yaml", None),
     ]
 
     assert filter_work_items_by_duration(work_items, None) is work_items
+    assert filter_work_items_by_duration(work_items, 30) == [
+        ("A_A-30.yaml", {"duration_s": 30})
+    ]
+    assert filter_work_items_by_duration(work_items, 60) == [
+        ("A_A-60.yaml", {"duration_s": 60})
+    ]
     assert filter_work_items_by_duration(work_items, 120) == [
         ("A_A-120.yaml", {"duration_s": 120})
     ]
