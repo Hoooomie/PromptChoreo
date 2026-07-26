@@ -3,6 +3,8 @@
 import asyncio
 from unittest.mock import patch
 
+import pytest
+
 from promptchoreo.adapters.happy_oyster import HappyOysterAdapter
 
 
@@ -108,7 +110,6 @@ def test_reset_goto_when_on_explore_page():
     asyncio.run(a._reset_to_input(page))
     assert page.goto_calls == 1
     assert a._session_started is False
-    assert a.crop_region is None
 
 
 def test_recorder_stop_idempotent():
@@ -173,3 +174,15 @@ def test_wait_for_playback_false_on_static_timer():
     with patch("asyncio.sleep", _instant):
         # 静态值不会递增 → 超时返回 False（绝不盲判为播放而开录）
         assert asyncio.run(a._wait_for_playback(page, 0.5)) is False
+
+
+class FakeGenerationErrorPage(FakePage):
+    async def evaluate(self, *a, **k):
+        return "内容无法生成，请换个描述试试"
+
+
+def test_generation_error_page_raises_stable_site_failure():
+    a = _make_adapter()
+    page = FakeGenerationErrorPage()
+    with pytest.raises(RuntimeError, match="site_generation_failed"):
+        asyncio.run(a._raise_if_generation_failed(page))

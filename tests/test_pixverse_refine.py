@@ -6,7 +6,10 @@
 """
 
 import asyncio
+import time
 from unittest.mock import patch
+
+import pytest
 
 from promptchoreo.adapters.pixverse import PixVerseAdapter
 
@@ -56,7 +59,12 @@ class FakePagePV:
 
 
 def _make_adapter_pv():
-    return PixVerseAdapter({"initial_prompt": "x", "_inject_events": []})
+    adapter = PixVerseAdapter({"initial_prompt": "x", "_inject_events": []})
+    # 这些单元测试直接调用内部注入循环，因此显式提供完整流程中由
+    # _start_session 建立的录屏/任务时钟。
+    adapter.generation_start_monotonic = time.monotonic() - 20.8
+    adapter._job_start_monotonic = adapter.generation_start_monotonic
+    return adapter
 
 
 def test_is_done_reflects_flag():
@@ -118,7 +126,7 @@ def test_run_injection_loop_tail_uses_end_delay():
 
     with patch("asyncio.sleep", _sleep_capture):
         asyncio.run(a._run_injection_loop(page, events, end_delay=15.0))
-    assert max(sleeps) == 15.0, sleeps
+    assert max(sleeps) == pytest.approx(15.0, abs=0.1), sleeps
 
 
 # ========== 模式选择（Story） ==========

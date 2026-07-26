@@ -8,10 +8,16 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
 import traceback
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 
 from playwright.async_api import Page
+
+
+class RetryCurrentJob(Exception):
+    """Abort the current site attempt and restart the same benchmark job."""
 
 
 class SiteAdapter(ABC):
@@ -36,6 +42,17 @@ class SiteAdapter(ABC):
     # 适配器内部已自行处理全部注入（如通过页面计时器轮询），
     # 设为 True 通知调度器跳过剩余事件，直接收尾。
     is_done: bool = False
+
+    def _begin_job_attempt(self, *, force: bool = False) -> None:
+        """Establish the wall-clock and monotonic start of one job attempt."""
+        current = getattr(self, "_job_start_monotonic", 0.0)
+        if force or not current:
+            self._job_start_monotonic = time.monotonic()
+        wall_time = getattr(self, "job_start_time_utc", None)
+        if force or not wall_time:
+            self.job_start_time_utc = datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
 
     @abstractmethod
     async def setup(self, page: Page) -> None:
@@ -98,6 +115,8 @@ class SiteAdapter(ABC):
         # 等视频真正开始渲染（最多 6s），避免录到雪花屏
         try:
             await self._wait_video_ready(page, timeout=6)
+        except RetryCurrentJob:
+            raise
         except Exception:
             pass
 
@@ -164,11 +183,24 @@ class SiteAdapter(ABC):
             return
         try:
             await page.bring_to_front()
-            # 若页面已填满整个屏幕（kiosk 启动或已全屏），无需再操作
-            already = await page.evaluate(
-                "() => window.innerWidth >= screen.width - 2 "
-                "&& window.innerHeight >= screen.height - 2"
+            # 固定 Playwright viewport 时，innerWidth/innerHeight 即使在普通
+            # 最大化窗口中也可能等于 screen 尺寸，不能据此判断真实全屏。
+            # 需要逐 job 重新全屏的站点只认 document.fullscreenElement。
+            force_document_fullscreen = bool(
+                getattr(self, "config", {}).get(
+                    "_force_document_fullscreen", False
+                )
             )
+            if force_document_fullscreen:
+                already = await page.evaluate(
+                    "() => Boolean(document.fullscreenElement)"
+                )
+            else:
+                already = await page.evaluate(
+                    "() => Boolean(document.fullscreenElement) || "
+                    "(window.innerWidth >= screen.width - 2 "
+                    "&& window.innerHeight >= screen.height - 2)"
+                )
             if already:
                 print("[DEBUG] 页面已全屏（kiosk/全屏），跳过", file=sys.stderr)
                 return
@@ -178,12 +210,30 @@ class SiteAdapter(ABC):
             await asyncio.sleep(0.15)
             # 2) 用 Fullscreen API 全屏整个文档（不需要 OS 焦点）
             ok = await page.evaluate(
-                "() => { try { if (!document.fullscreenElement) "
-                "document.documentElement.requestFullscreen(); return true; } "
-                "catch (e) { return false; } }"
+                """async () => {
+                    try {
+                        if (!document.fullscreenElement) {
+                            await document.documentElement.requestFullscreen();
+                        }
+                        return Boolean(document.fullscreenElement);
+                    } catch (e) {
+                        return false;
+                    }
+                }"""
             )
             if ok:
-                print("[DEBUG] 已点击 + requestFullscreen，页面进入全屏", file=sys.stderr)
+                fullscreen_state = await page.evaluate(
+                    "() => ({"
+                    "fullscreen: Boolean(document.fullscreenElement), "
+                    "innerWidth, innerHeight, "
+                    "screenWidth: screen.width, screenHeight: screen.height"
+                    "})"
+                )
+                print(
+                    "[DEBUG] 已点击 + requestFullscreen，页面进入全屏: "
+                    f"{fullscreen_state}",
+                    file=sys.stderr,
+                )
             else:
                 # 极端回退：再试一次 F11
                 await page.keyboard.press("F11")

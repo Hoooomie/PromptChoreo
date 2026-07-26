@@ -30,13 +30,17 @@ CONFIG = {
     "site": "Odyssey",
 }
 
-# ── 裁剪参数（两步法） ──
-# 第 1 步：削掉顶部浏览器栏（白色 Chrome 地址栏/标签页），
-#         然后视频在剩余区域里是真正居中的。
-# 第 2 步：居中裁剪视频。
-CHROME_TOP_RATIO = 0.13   # 浏览器栏高度 / 屏幕高（先削掉）
-OD_VIDEO_W_RATIO = 0.31   # 视频宽 / 屏幕宽
-OD_VIDEO_H_RATIO = 0.32   # 视频高 / 屏幕高（削掉栏之后自动居中，无需 X/Y 偏移）
+# Odyssey 当前录屏分辨率固定为 2560x1440；当 ffmpeg 无法解析媒体头时，
+# 仍使用这个尺寸计算固定裁剪框，避免回退到不稳定的 cropdetect 结果。
+DEFAULT_VIDEO_SIZE = (2560, 1440)
+
+# ── 裁剪参数（F11 全屏模式，无浏览器栏） ──
+# 根据 2560x1440 截图再次收紧：视频区域约为 816x444，左上角约为 (872, 510)。
+# 四周只保留少量黑边；视频不在屏幕正中央，所以 x/y 仍使用固定比例。
+OD_VIDEO_X_RATIO = 0.3408  # 872 / 2560
+OD_VIDEO_Y_RATIO = 0.3545  # 510 / 1440
+OD_VIDEO_W_RATIO = 0.3190  # 816 / 2560
+OD_VIDEO_H_RATIO = 0.3086  # 444 / 1440，兼容 2559x1439 截图
 
 VIDEO_EXTS = (".webm", ".mp4", ".mkv", ".mov", ".avi")
 
@@ -100,20 +104,12 @@ def even(n: int) -> int:
 
 
 def fixed_crop(width: int, height: int) -> tuple[int, int, int, int] | str:
-    """两步裁：先削浏览器栏，再居中裁视频。返回裁剪参数供 process 使用。"""
-    # 第 1 步：削顶部浏览器栏
-    top = even(int(height * CHROME_TOP_RATIO))
-    # 第 2 步：剩余区域内，视频居中
+    """按截图测得的非居中视频区域裁剪，返回 ffmpeg crop 滤镜。"""
     vw = even(int(width * OD_VIDEO_W_RATIO))
     vh = even(int(height * OD_VIDEO_H_RATIO))
-    rem_h = height - top          # 削掉栏之后的高度
-    vx = even((width - vw) // 2)  # 水平居中
-    vy = even((rem_h - vh) // 2)  # 垂直居中（相对剩余区域）
-
-    # 返回两步 ffmpeg crop 链：用逗号连接
-    strip = f"crop={width}:{rem_h}:0:{top}"          # 削栏
-    zoom = f"crop={vw}:{vh}:{vw + 2 if vx < 0 else vx}:{vy}"  # 居中裁视频
-    return f"{strip},{zoom}"
+    vx = even(int(width * OD_VIDEO_X_RATIO))
+    vy = even(int(height * OD_VIDEO_Y_RATIO))
+    return f"crop={vw}:{vh}:{vx}:{vy}"
 
 
 def _run(ffmpeg, cmd, timeout=600):
@@ -130,7 +126,7 @@ def process(ffmpeg, src, dst, crop, ss, to):
     vf = None
     if crop:
         if isinstance(crop, str):
-            vf = crop  # 直接使用滤镜链（两步裁等）
+            vf = crop  # 直接使用 ffmpeg crop 表达式
         else:
             w, h, x, y = [even(int(v)) for v in crop]
             vf = f"crop={w}:{h}:{x}:{y}"
@@ -207,25 +203,23 @@ def main():
             size = get_video_size(ffmpeg, src)
             if size:
                 crop = fixed_crop(size[0], size[1])
-                top = even(int(size[1] * CHROME_TOP_RATIO))
                 vw = even(int(size[0] * OD_VIDEO_W_RATIO))
                 vh = even(int(size[1] * OD_VIDEO_H_RATIO))
                 print(
-                    f"    两步裁剪: 削顶栏{top}px → 裁视频{vw}x{vh}居中  "
+                    f"    固定区域裁剪: {vw}x{vh}，左上角 "
+                    f"({even(int(size[0] * OD_VIDEO_X_RATIO))},"
+                    f"{even(int(size[1] * OD_VIDEO_Y_RATIO))})  "
                     f"(源 {size[0]}x{size[1]})"
                 )
             else:
-                print("    无法解析分辨率，回退 cropdetect")
-                crop = detect_crop(
-                    ffmpeg, src, CONFIG["samples"],
-                    CONFIG["limit"], CONFIG["round"],
+                width, height = DEFAULT_VIDEO_SIZE
+                crop = fixed_crop(width, height)
+                print(
+                    f"    无法解析分辨率，使用默认 {width}x{height} 的固定区域裁剪: "
+                    f"{crop}"
                 )
-                if crop:
-                    w, h, x, y = crop
-                    print(f"    自动裁剪区: {w}x{h}@({x},{y})")
-                else:
-                    print("    未检测到裁剪区，直接转码")
 
+        print(f"    实际滤镜: {crop}")
         ok = process(ffmpeg, src, dst, crop, args.ss, args.to)
         print("    [完成]" if ok else "    [失败]")
 

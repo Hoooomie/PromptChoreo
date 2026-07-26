@@ -17,7 +17,7 @@ playwright install chromium
 
 ---
 
-## 2. 登录与凭据（只需做一次）
+## 2. 登录（只需做一次）
 
 Happy Oyster 和 PixVerse 需要登录。**Odyssey 无需登录**，可跳过本步。
 
@@ -30,14 +30,8 @@ python scripts/login_pixverse.py      # 登录态 → ~/.workbuddy/browser_data_
 
 脚本打开浏览器 → 手动登录 → 终端按回车关闭。之后 `run` / `batch` 自动复用。
 
-### 2.2 PixVerse 凭据
-
-PixVerse 还需邮箱 + 密码用于自动表单登录。凭据存在 **`.credentials.yaml`**（已 gitignored）：
-
-```bash
-copy .credentials.example.yaml .credentials.yaml
-# 编辑 .credentials.yaml，填入真实邮箱/密码
-```
+PixVerse World 必须从 `world.pixverse.video/generate/` 页面自己的 **Log in**
+入口登录；`app.pixverse.ai/login` 是另一套产品界面。
 
 ---
 
@@ -131,9 +125,40 @@ promptchoreo batch examples/manifest_pixverse.json --cdp http://127.0.0.1:9222
 
 ---
 
-## 5. 裁剪成片
+## 5. StreamAVBench 批量运行
 
-录屏是整浏览器窗口，需裁掉顶部 Chrome 栏和周围页面背景，只留视频内容。三个站点各一个独立脚本：
+```bash
+# Pilot（默认）
+python scripts/bench_runner_happyoyster.py --phase pilot
+python scripts/bench_runner_odyssey.py --phase pilot
+python scripts/bench_runner.py --phase pilot          # PixVerse
+
+# Remain
+python scripts/bench_runner_happyoyster.py --phase remain
+python scripts/bench_runner_odyssey.py --phase remain
+python scripts/bench_runner.py --phase remain
+
+# 单个 job（使用 YAML 文件名格式）
+python scripts/bench_runner.py --phase remain --job EXAMPLE_JOB_SPLIT
+```
+
+成功 job 会自动跳过。结果分别保存在：
+
+```text
+outputs/happyoyster/<phase>/
+outputs/odyssey/<phase>/
+outputs/pixverse_r1/<phase>/
+```
+
+任务来源为 `StreamAVBench_closed_source_web_package/.../*_jobs.json`，实际 prompt
+配置位于 `bench_yamls/`。
+
+---
+
+## 6. 裁剪工具
+
+Benchmark runner 会自行完成视频整理，不要对其 `final_video.mp4` 再次裁剪。
+下面脚本只用于手工处理 `outputs/video/` 中的原始录屏：
 
 ```bash
 python scripts/trim_happyoyster.py    # outputs/video/ho → outputs/tvideo/ho
@@ -141,7 +166,8 @@ python scripts/trim_odyssey.py        # outputs/video/od → outputs/tvideo/od
 python scripts/trim_pixverse.py       # outputs/video/pv → outputs/tvideo/pv
 ```
 
-裁剪逻辑：先按比例削顶部浏览器栏，再居中对视频区。各站裁剪比例在脚本顶部常量里调，或直接 `--crop` 手定：
+Happy Oyster benchmark 保留完整 `2560x1440` 画面，不做空间裁剪。
+Odyssey/PixVerse 的手工裁剪参数可在脚本顶部调整，或直接传入：
 
 ```bash
 python scripts/trim_odyssey.py --crop 940:522:810:434

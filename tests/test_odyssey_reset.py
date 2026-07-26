@@ -2,6 +2,9 @@
 
 import asyncio
 
+import pytest
+
+from promptchoreo.adapters.base import RetryCurrentJob
 from promptchoreo.adapters.odyssey import OdysseyAdapter
 
 
@@ -127,3 +130,102 @@ def test_reset_session_ended_clicks_try_again():
     assert x_loc is None or not x_loc.clicked
     assert a._session_started is False
     assert a.crop_region is None
+
+
+def test_video_wait_ignores_timeout_and_waits_until_ready():
+    """Odyssey 的首帧等待不应再受基类传入的固定 timeout 限制。"""
+    adapter = OdysseyAdapter(
+        {"_required_duration_s": 60, "_render_guard_s": 3}
+    )
+    checks = 0
+
+    async def session_not_ended(page, *, raise_if_ended=True):
+        return False
+
+    async def plenty_of_time(page):
+        return 120.0
+
+    class VideoPage:
+        async def evaluate(self, script):
+            nonlocal checks
+            checks += 1
+            return checks >= 2
+
+    adapter._check_session_ended = session_not_ended
+    adapter._get_top_timer_seconds = plenty_of_time
+
+    asyncio.run(adapter._wait_video_ready(VideoPage(), timeout=0))
+    assert checks == 2
+
+
+def test_video_wait_abandons_before_accepting_late_video():
+    """触及预算底线后不得再查询/接受随后出现的视频。"""
+    adapter = OdysseyAdapter(
+        {"_required_duration_s": 60, "_render_guard_s": 3}
+    )
+    reset_waited = False
+
+    async def session_not_ended(page, *, raise_if_ended=True):
+        return False
+
+    async def at_budget_floor(page):
+        return 63.0
+
+    async def wait_for_reset(page):
+        nonlocal reset_waited
+        reset_waited = True
+
+    class LateVideoPage:
+        async def evaluate(self, script):
+            raise AssertionError("预算不足后不应再检查晚到的视频")
+
+    adapter._check_session_ended = session_not_ended
+    adapter._get_top_timer_seconds = at_budget_floor
+    adapter._wait_for_session_end_and_reset = wait_for_reset
+
+    with pytest.raises(
+        RetryCurrentJob,
+        match="insufficient_session_time_while_waiting_for_video",
+    ):
+        asyncio.run(adapter._wait_video_ready(LateVideoPage()))
+    assert reset_waited is True
+
+
+def test_setup_retries_same_job_after_video_wait_abandonment():
+    """Try Again 复位后，setup 应重新提交同一个 initial prompt。"""
+    adapter = OdysseyAdapter({"initial_prompt": "same prompt"})
+    page = FakePage(landing_visible=True)
+    starts = 0
+    warmups = 0
+
+    async def no_op(page):
+        return None
+
+    async def run_warmup(page):
+        nonlocal warmups
+        warmups += 1
+
+    async def start_then_retry(page, prompt):
+        nonlocal starts
+        starts += 1
+        assert prompt == "same prompt"
+        if starts == 1:
+            adapter._session_started = True
+            adapter.generation_start_monotonic = 123.0
+            raise RetryCurrentJob(
+                "insufficient_session_time_while_waiting_for_video"
+            )
+
+    adapter._enter_fullscreen = no_op
+    adapter._ensure_session_budget = no_op
+    adapter._run_retry_warmup = run_warmup
+    adapter._start_session = start_then_retry
+
+    asyncio.run(adapter.setup(page))
+    assert starts == 2
+    assert warmups == 1
+    assert adapter._video_wait_retry_count == 1
+    assert (
+        adapter._retry_reason
+        == "insufficient_session_time_while_waiting_for_video"
+    )
