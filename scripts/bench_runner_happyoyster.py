@@ -23,6 +23,12 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.promptchoreo.core.media import get_mp4_media_info
+from scripts.bench_subset import (
+    DEFAULT_SUBSET_JOBS,
+    filter_work_items_by_duration,
+    prepare_subset_work_items,
+    subset_output_dir,
+)
 
 
 BENCH_DIR = (
@@ -30,6 +36,7 @@ BENCH_DIR = (
     "StreamAVBench_closed_source_web_package"
 )
 YAML_DIR = "bench_yamls"
+SUBSET_YAML_DIR = os.path.join(YAML_DIR, "formal_120s_subset_60cases")
 OUTPUT_BASE = "outputs"
 MODEL_ID = "happyoyster"
 MODEL_NAME = "HappyOyster"
@@ -514,12 +521,42 @@ def select_files(args):
     return files
 
 
+def select_work_items(args):
+    if args.subset:
+        work_items = prepare_subset_work_items(
+            args.subset, SUBSET_YAML_DIR, args.job
+        )
+    else:
+        work_items = [
+            (
+                filename,
+                load_job_source("pilot", yaml_to_job_id(filename))
+                or load_job_source("remain", yaml_to_job_id(filename)),
+            )
+            for filename in select_files(args)
+        ]
+
+    duration_filter = 120 if args.only_120 else None
+    return filter_work_items_by_duration(work_items, duration_filter)
+
+
 async def main_async(args):
-    files = select_files(args)
-    print(f"Jobs: {len(files)}")
+    work_items = select_work_items(args)
+    print(f"Jobs: {len(work_items)}")
     if args.dry_run:
-        for name in files:
-            print(f"  [DRY] {yaml_to_job_id(name)}")
+        for filename, job in work_items:
+            job_id = job["job_id"] if job else yaml_to_job_id(filename)
+            out_dir = (
+                subset_output_dir(job, MODEL_ID)
+                if args.subset
+                else os.path.join(
+                    OUTPUT_BASE,
+                    MODEL_ID,
+                    job["phase"] if job else "pilot",
+                    job_id.replace(":", "_"),
+                )
+            )
+            print(f"  [DRY] {job_id} -> {out_dir}")
         return
 
     from playwright.async_api import async_playwright
@@ -564,17 +601,17 @@ async def main_async(args):
             )
 
         ok_count = 0
-        for filename in files:
-            job_id = yaml_to_job_id(filename)
-            job = (
-                load_job_source("pilot", job_id)
-                or load_job_source("remain", job_id)
-            )
-            out_dir = os.path.join(
-                OUTPUT_BASE,
-                MODEL_ID,
-                job["phase"] if job else "pilot",
-                job_id.replace(":", "_"),
+        for filename, job in work_items:
+            job_id = job["job_id"] if job else yaml_to_job_id(filename)
+            out_dir = (
+                subset_output_dir(job, MODEL_ID)
+                if args.subset
+                else os.path.join(
+                    OUTPUT_BASE,
+                    MODEL_ID,
+                    job["phase"] if job else "pilot",
+                    job_id.replace(":", "_"),
+                )
             )
             manifest_path = os.path.join(out_dir, "run_manifest.json")
             final_video = os.path.join(out_dir, "final_video.mp4")
@@ -595,7 +632,10 @@ async def main_async(args):
             try:
                 await run_one(
                     page,
-                    os.path.join(YAML_DIR, filename),
+                    os.path.join(
+                        SUBSET_YAML_DIR if args.subset else YAML_DIR,
+                        filename,
+                    ),
                     job_id,
                     job,
                     out_dir,
@@ -619,7 +659,7 @@ async def main_async(args):
                 )
                 print(f"  FAIL: {exc}")
 
-        print(f"\nDone: {ok_count}/{len(files)} OK")
+        print(f"\nDone: {ok_count}/{len(work_items)} OK")
         await context.close()
 
 
@@ -634,6 +674,20 @@ def main():
         choices=["pilot", "remain", "all"],
         default="pilot",
         help="pilot（默认）| remain | all",
+    )
+    parser.add_argument(
+        "--120",
+        dest="only_120",
+        action="store_true",
+        help="只运行当前 phase 中 duration_s=120 的任务",
+    )
+    parser.add_argument(
+        "--subset",
+        nargs="?",
+        const=str(DEFAULT_SUBSET_JOBS),
+        default=None,
+        metavar="JOBS_JSONL",
+        help="运行正式 60-case 120s 子集；不传路径时使用默认私有 JSONL",
     )
     parser.add_argument(
         "--max-load-wait",
