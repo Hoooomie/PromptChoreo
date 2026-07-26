@@ -14,9 +14,16 @@ from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.promptchoreo.adapters.odyssey import ContentBlockedError, OdysseyAdapter
 from src.promptchoreo.core.media import get_mp4_media_info
+from scripts.bench_subset import (
+    DEFAULT_SUBSET_JOBS,
+    filter_work_items_by_duration,
+    prepare_subset_work_items,
+    subset_output_dir,
+)
 
 BENCH_DIR = "StreamAVBench_closed_source_web_package/StreamAVBench_closed_source_web_package"
 YAML_DIR = "bench_yamls"
+SUBSET_YAML_DIR = os.path.join(YAML_DIR, "formal_120s_subset_60cases")
 OUTPUT_BASE = "outputs"
 MODEL_ID = "odyssey"
 VIDEO_SRC = "outputs/video/od"
@@ -445,19 +452,58 @@ async def run_one(
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+def select_work_items(args):
+    if args.subset:
+        work_items = prepare_subset_work_items(
+            args.subset, SUBSET_YAML_DIR, args.job
+        )
+    else:
+        files = sorted(
+            filename
+            for filename in os.listdir(YAML_DIR)
+            if filename.endswith(".yaml")
+        )
+        if args.job:
+            files = [f for f in files if args.job in f]
+
+        if args.phase == "pilot":
+            phase_ids = {j["job_id"] for j in json.load(open(os.path.join(BENCH_DIR, "pilot_jobs.json")))["jobs"]}
+            files = [f for f in files if yaml_to_job_id(f) in phase_ids]
+        elif args.phase == "remain":
+            phase_ids = {j["job_id"] for j in json.load(open(os.path.join(BENCH_DIR, "remain_jobs.json")))["jobs"]}
+            files = [f for f in files if yaml_to_job_id(f) in phase_ids]
+
+        work_items = [
+            (
+                filename,
+                load_job_source("pilot", yaml_to_job_id(filename))
+                or load_job_source("remain", yaml_to_job_id(filename)),
+            )
+            for filename in files
+        ]
+
+    duration_filter = 120 if args.only_120 else None
+    return filter_work_items_by_duration(work_items, duration_filter)
+
+
 async def main_async(args):
-    files = sorted(os.listdir(YAML_DIR))
-    if args.job:
-        files = [f for f in files if args.job in f]
-
-    if args.phase == "pilot":
-        phase_ids = {j["job_id"] for j in json.load(open(os.path.join(BENCH_DIR, "pilot_jobs.json")))["jobs"]}
-        files = [f for f in files if yaml_to_job_id(f) in phase_ids]
-    elif args.phase == "remain":
-        phase_ids = {j["job_id"] for j in json.load(open(os.path.join(BENCH_DIR, "remain_jobs.json")))["jobs"]}
-        files = [f for f in files if yaml_to_job_id(f) in phase_ids]
-
-    print(f"Jobs: {len(files)}")
+    work_items = select_work_items(args)
+    print(f"Jobs: {len(work_items)}")
+    if args.dry_run:
+        for filename, job in work_items:
+            job_id = job["job_id"] if job else yaml_to_job_id(filename)
+            out_dir = (
+                subset_output_dir(job, MODEL_ID)
+                if args.subset
+                else os.path.join(
+                    OUTPUT_BASE,
+                    MODEL_ID,
+                    job["phase"] if job else "pilot",
+                    job_id.replace(":", "_"),
+                )
+            )
+            print(f"  [DRY] {job_id} -> {out_dir}")
+        return
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -483,14 +529,19 @@ async def main_async(args):
         print(f"Browser display: {actual_viewport}")
 
         ok_count = 0
-        for f in files:
-            job_id = yaml_to_job_id(f)
-            job = load_job_source("pilot", job_id) or load_job_source("remain", job_id)
-            if args.dry_run:
-                print(f"  [DRY] {job_id}")
-                continue
+        for filename, job in work_items:
+            job_id = job["job_id"] if job else yaml_to_job_id(filename)
 
-            out_dir = os.path.join(OUTPUT_BASE, MODEL_ID, job["phase"] if job else "pilot", job_id.replace(":", "_"))
+            out_dir = (
+                subset_output_dir(job, MODEL_ID)
+                if args.subset
+                else os.path.join(
+                    OUTPUT_BASE,
+                    MODEL_ID,
+                    job["phase"] if job else "pilot",
+                    job_id.replace(":", "_"),
+                )
+            )
             manifest_path = os.path.join(out_dir, "run_manifest.json")
             video_exists = os.path.exists(os.path.join(out_dir, "final_video.mp4"))
             if os.path.exists(manifest_path) and video_exists:
@@ -510,7 +561,10 @@ async def main_async(args):
             try:
                 await run_one(
                     page,
-                    os.path.join(YAML_DIR, f),
+                    os.path.join(
+                        SUBSET_YAML_DIR if args.subset else YAML_DIR,
+                        filename,
+                    ),
                     job_id,
                     job,
                     out_dir,
@@ -526,7 +580,7 @@ async def main_async(args):
                 )
                 print(f"  FAIL: {e}")
 
-        print(f"\nDone: {ok_count}/{len(files)} OK")
+        print(f"\nDone: {ok_count}/{len(work_items)} OK")
         await browser.close()
 
 
@@ -536,6 +590,20 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--phase", choices=["pilot", "remain", "all"], default="pilot",
                         help="pilot（50 个，默认）| remain（490 个）| all（540 个）")
+    parser.add_argument(
+        "--120",
+        dest="only_120",
+        action="store_true",
+        help="只运行当前 phase 中 duration_s=120 的任务",
+    )
+    parser.add_argument(
+        "--subset",
+        nargs="?",
+        const=str(DEFAULT_SUBSET_JOBS),
+        default=None,
+        metavar="JOBS_JSONL",
+        help="运行正式 60-case 120s 子集；不传路径时使用默认私有 JSONL",
+    )
     args = parser.parse_args()
     asyncio.run(main_async(args))
 
