@@ -138,6 +138,11 @@ python scripts/bench_runner_happyoyster.py --phase remain
 python scripts/bench_runner_odyssey.py --phase remain
 python scripts/bench_runner.py --phase remain
 
+# Remain 中全部 120 秒任务（160 个，仍写入原 remain 目录）
+python scripts/bench_runner_happyoyster.py --phase remain --120
+python scripts/bench_runner_odyssey.py --phase remain --120
+python scripts/bench_runner.py --phase remain --120
+
 # 单个 job（使用 YAML 文件名格式）
 python scripts/bench_runner.py --phase remain --job EXAMPLE_JOB_SPLIT
 ```
