@@ -19,7 +19,7 @@ class PixVerseAdapter(SiteAdapter):
     name = "pixverse"
     resets_clock = True
     user_data_dir = get_browser_data_dir("pixverse")
-    URL = "https://world.pixverse.ai/generate/"
+    URL = "https://world.pixverse.video/generate/"
 
     SELECTORS = {
         "landing_textarea": "textarea[placeholder*='Describe']",
@@ -38,7 +38,17 @@ class PixVerseAdapter(SiteAdapter):
         self._last_pct: int | None = None
         self.generation_start_monotonic: float | None = None
         self.stop_monotonic: float | None = None
-        self._max_queue_wait = self.config.get("max_queue_wait", 300)
+        self._job_start_monotonic = float(
+            self.config.get("_job_start_monotonic", 0) or 0
+        )
+        self.job_start_time_utc: str | None = self.config.get(
+            "_job_start_time_utc"
+        )
+        self.initial_prompt_time_s: float | None = None
+        self.first_video_chunk_time_s: float | None = None
+        self.generation_complete_time_s: float | None = None
+        self._injection_log: list[dict] = []
+        self._max_queue_wait = self.config.get("max_queue_wait", 30000)
         self._max_load_wait = self.config.get("max_load_wait", 600)
         self._post_inject_delay = self.config.get("post_inject_delay", 0.5)
         self._mode = (self.config.get("mode") or "story").lower()  # 默认 story 模式
@@ -48,13 +58,12 @@ class PixVerseAdapter(SiteAdapter):
         self.crop_region: str | None = None
 
     async def setup(self, page: Page) -> None:
+        self._begin_job_attempt()
         await page.goto(self.URL, wait_until="domcontentloaded", timeout=60000)
         await asyncio.sleep(3)
         await self._ensure_logged_in(page)
         input_loc = page.locator(self.SELECTORS["landing_textarea"])
         await input_loc.wait_for(state="visible", timeout=30000)
-        # 打开即全屏，提升 EV 录屏分辨率
-        await self._enter_fullscreen(page)
         initial_prompt = self.config.get("initial_prompt")
         if initial_prompt:
             print(f"[DEBUG] setup: {initial_prompt!r}", file=sys.stderr)
@@ -236,54 +245,73 @@ class PixVerseAdapter(SiteAdapter):
         调度器不再重复派发（避免初始 prompt 被当作指令二次注入）。
         """
         # 0. 显式选择模式（默认 story；PixVerse 可能记住上次模式，必须点选）
+        self._begin_job_attempt()
         await self._ensure_mode(page)
 
         input_loc = page.locator(self.SELECTORS["landing_textarea"])
         await input_loc.fill(prompt)
         await asyncio.sleep(0.5)
         await self._click_star(page)
+        self.initial_prompt_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
 
         print("[DEBUG] 等待生成页就绪...", file=sys.stderr)
         deadline = time.monotonic() + self._max_queue_wait
         while time.monotonic() < deadline:
             body = await page.evaluate("() => document.body.innerText || ''")
-            if "What would you like to happen" in body or "left in your session" in body:
+            if "What would you like to happen" in body or "left in your session" in body or "Preparing" in body:
                 print("[DEBUG] 生成页就绪", file=sys.stderr)
                 break
             await asyncio.sleep(2)
         else:
             raise RuntimeError(f"等待生成页超时 {self._max_queue_wait}s")
 
-        # 生成页刚就绪，给 UI 一点时间稳定（视频可能已经开始播了）
+        # 生成页刚就绪，给 UI 一点时间稳定
+        await asyncio.sleep(2)
+        # 关 BGM（一次点击）
+        await self._toggle_bgm_off_pv(page)
         await asyncio.sleep(1)
-        # 测出真正的视频内容包围盒，作为裁剪区（去掉周边 UI）
+
         await self._detect_content_region(page)
-        # 确保 Publish World Exploration 开启（开启后可直接下载原视频）
-        await self._ensure_publish_on(page)
 
-        # 在等视频确认播放之前，先把 BGM hover/点击做了——这项操作比较耗时
-        # （hover 视频 → 等浮层 → 点 🎵），正好跟视频加载并行，不会让录屏起步更晚。
-        await self._toggle_bgm_off(page)
-
-        # 等视频真正开始播放（<video>.currentTime 有值且非零），确认后立刻开录
+        # 等视频真正开始播放，确认后立刻开录
         await self._wait_for_playback(page)
+        self.first_video_chunk_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
         self.generation_start_monotonic = time.monotonic()
+        await self._recorder_start(page)
+        # 录屏开始后的视频时钟作为偏移——后续注入在 offset + target_time 触发
         start_vt = await self._get_video_time(page) or 0.0
-        # 记录录制开始时的视频时钟偏移——后续注入目标都是「相对录制起点」的时间，
-        # 所以注入循环中实际等待的是 video_offset + target_time。
-        self._video_offset = start_vt
+        # EV 热键延迟补偿（秒）：pyautogui 发键 → EV 实际开录的间隙
+        hotkey_lag = float(self.config.get("recorder_lag_s", 0.8))
+        self._video_offset = start_vt + hotkey_lag
         print(
-            f"[DEBUG] 录屏开始：视频时钟={start_vt:.1f}s（以此为录制起点，"
-            f"注入偏移 +{start_vt:.1f}s）",
+            f"[DEBUG] 录屏开始：视频时钟={start_vt:.1f}s，注入偏移=+{start_vt:.1f}s",
             file=sys.stderr,
         )
         self._session_started = True
-        await self._recorder_start(page)
 
         # 注入循环：消费 config_extra["_inject_events"]，完成置 is_done
         events = self.config.get("_inject_events", [])
         end_delay = self.config.get("_end_delay", 0.0)
-        await self._run_injection_loop(page, events, end_delay)
+        self._injection_log = []  # 记录每次注入的实际时间（spec 格式）
+
+        # 记录 initial prompt（Track A & B 都有）
+        prompt_schedule = self.config.get("_prompt_schedule", [])
+        initial = prompt_schedule[0] if prompt_schedule else {}
+        self._injection_log.append({
+            "prompt_id": initial.get("prompt_id", ""),
+            "role": "initial",
+            "scheduled_media_time_s": 0.0,
+            "actual_media_time_s": 0.0,
+            "actual_injection_time_s": self.initial_prompt_time_s,
+            "status": "accepted",
+            "error": None,
+        })
+
+        await self._run_injection_loop(page, events, end_delay, hotkey_lag)
         self._injections_done = True
 
     async def _click_star(self, page: Page) -> None:
@@ -394,7 +422,7 @@ class PixVerseAdapter(SiteAdapter):
         )
 
     async def _run_injection_loop(
-        self, page: Page, events: list[dict], end_delay: float
+        self, page: Page, events: list[dict], end_delay: float, hotkey_lag: float = 0.8
     ) -> None:
         """按视频时钟在精准时刻注入后续 prompt。
 
@@ -405,29 +433,56 @@ class PixVerseAdapter(SiteAdapter):
         tolerance = 0.8
         poll_interval = 0.25
         offset = getattr(self, "_video_offset", 0.0)
+        # 过滤 time==0 的事件（已在 _start_session 中作为 initial prompt 注入并记录）
         targets = sorted(
-            [(float(e["time"]), str(e["prompt"])) for e in events],
+            [
+                (float(e["time"]), str(e["prompt"]),
+                 e.get("prompt_id", ""), e.get("role", "update"))
+                for e in events
+                if float(e.get("time", 0)) > 0
+            ],
             key=lambda x: x[0],
         )
         if not targets:
-            print("[DEBUG] 无注入事件，跳过注入循环", file=sys.stderr)
+            print("[DEBUG] 无注入事件（仅 initial prompt），等待录制时长后停录屏", file=sys.stderr)
+            target_duration = end_delay + hotkey_lag
+            sleep_until = self.generation_start_monotonic + target_duration
+            remaining = sleep_until - time.monotonic()
+            if remaining > 0:
+                print(
+                    f"[DEBUG] 等待 {remaining:.0f}s 至录制时长 {target_duration:.0f}s 后停录屏",
+                    file=sys.stderr,
+                )
+                await asyncio.sleep(remaining)
+            self.generation_complete_time_s = round(
+                time.monotonic() - self._job_start_monotonic, 1
+            )
+            print("[DEBUG] 停止录屏 → 立刻点 Leave 结束生成", file=sys.stderr)
+            await self._recorder_stop(page)
+            try:
+                leave_btn = page.locator(self.SELECTORS["leave_button"]).first
+                if await leave_btn.is_visible(timeout=3000):
+                    await leave_btn.click(timeout=5000)
+                    print("[DEBUG] 已点 Leave，生成结束", file=sys.stderr)
+            except Exception as e:
+                print(f"[DEBUG] Leave 点击失败: {e}", file=sys.stderr)
             return
         print(
             f"[DEBUG] 注入循环启动（偏移 +{offset:.1f}s），共 {len(targets)} 个目标: "
-            f"{[f'{t:.0f}s' for t, _ in targets]}（轮询 {poll_interval*1000:.0f}ms，容差 ±{tolerance:.0f}s）",
+            f"{[f'{t:.0f}s' for t, _, _, _ in targets]}（轮询 {poll_interval*1000:.0f}ms，容差 ±{tolerance:.0f}s）",
             file=sys.stderr,
         )
 
         idx = 0
         last_inject_at_target: float | None = None
+        last_activity = time.monotonic()
         while idx < len(targets):
             current = await self._get_video_time(page)
             if current is None:
                 await asyncio.sleep(poll_interval)
                 continue
 
-            target_time, prompt = targets[idx]
-            # 实际触发时刻 = 录屏起点视频时钟 + 目标秒数
+            target_time, prompt, prompt_id, role = targets[idx]
             trigger_at = offset + target_time
             if current >= trigger_at - tolerance:
                 if last_inject_at_target == target_time:
@@ -441,29 +496,52 @@ class PixVerseAdapter(SiteAdapter):
                     file=sys.stderr,
                 )
                 await self._inject_command(page, prompt)
+                self._injection_log.append({
+                    "prompt_id": prompt_id,
+                    "role": role,
+                    "scheduled_media_time_s": target_time,
+                    "actual_media_time_s": round(current, 1),
+                    "actual_injection_time_s": round(time.monotonic() - self._job_start_monotonic, 1),
+                    "status": "accepted",
+                    "error": None,
+                })
                 last_inject_at_target = target_time
                 idx += 1
+                last_activity = time.monotonic()
                 await asyncio.sleep(0.3)
                 continue
 
+            # 超时保护：60s 无注入则跳出
+            if time.monotonic() - last_activity > 60:
+                print("[WARN] 注入循环超时（60s无注入），跳出", file=sys.stderr)
+                break
+
             await asyncio.sleep(poll_interval)
 
-        # 收尾：等一段（供最后一条指令的内容沉淀）后停止外部录屏。
-        # 尾巴长度优先用 end_delay（用户在清单里设定 = 最后一条注入后继续录制的秒数），
-        # 这样录制结束点由用户控制、与清单对齐；end_delay 为 0 才回退到事件间隔/默认。
-        if end_delay and end_delay > 0:
-            tail = float(end_delay)
+        # 收尾：在录制起点 + 目标时长处停止录屏，然后点 Leave。
+        # 停录屏在前、Leave 在后，确保录制时长精确。
+        last_target_time = max(t[0] for t in targets)
+        if end_delay:
+            extra = end_delay
         elif len(targets) >= 2:
-            tail = targets[1][0] - targets[0][0]
+            extra = targets[1][0] - targets[0][0]
         else:
-            tail = 10.0
-        print(
-            f"[DEBUG] 注入完成，最后一条在视频时钟 {targets[-1][0]:.0f}s；"
-            f"等待 end_delay={end_delay} → tail={tail:.0f}s 后同时结束录屏和生成",
-            file=sys.stderr,
-        )
-        await asyncio.sleep(tail)
+            extra = 10
+        target_duration = last_target_time + extra
+        # 加上 hotkey 延迟，使录屏时长精确
+        target_duration += hotkey_lag
+        sleep_until = self.generation_start_monotonic + target_duration
+        remaining = sleep_until - time.monotonic()
+        if remaining > 0:
+            print(
+                f"[DEBUG] 注入完成，等待 {remaining:.0f}s 至录制时长 {target_duration:.0f}s 后停录屏",
+                file=sys.stderr,
+            )
+            await asyncio.sleep(remaining)
 
+        self.generation_complete_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
         # 先停录屏 → 立刻点 Leave 结束生成（背靠背，不 sleep）
         print("[DEBUG] 停止录屏 → 立刻点 Leave 结束生成", file=sys.stderr)
         await self._recorder_stop(page)
@@ -492,16 +570,83 @@ class PixVerseAdapter(SiteAdapter):
             pass
 
     async def _inject_command(self, page: Page, command: str) -> None:
+        """注入：填 textarea → 点发送按钮（fallback Enter）。"""
         stream_ta = page.locator(self.SELECTORS["stream_textarea"]).first
         await stream_ta.wait_for(state="visible", timeout=10000)
         await stream_ta.click()
         await stream_ta.fill("")
         await stream_ta.fill(command)
         await asyncio.sleep(0.2)
+        try:
+            send = page.locator("button[type='submit']").first
+            if await send.is_visible(timeout=2000):
+                await send.click()
+                print(f"[DEBUG] 注入(发送): {command[:50]}", file=sys.stderr)
+                return
+        except Exception:
+            pass
         await stream_ta.press("Enter")
-        print(f"[DEBUG] 注入: {command[:50]}", file=sys.stderr)
+        print(f"[DEBUG] 注入(Enter): {command[:50]}", file=sys.stderr)
         if self._post_inject_delay > 0:
             await asyncio.sleep(self._post_inject_delay)
+
+    async def _toggle_bgm_off_pv(self, page: Page) -> None:
+        """PixVerse 新版 UI：右上角播放器图标 → Sound settings → 关 background music。"""
+        try:
+            # 1. dump 右上角所有按钮帮助 debug
+            buttons_dump = await page.evaluate("""() => {
+                var vw = window.innerWidth;
+                return Array.from(document.querySelectorAll('button')).map(function(b, i) {
+                    var r = b.getBoundingClientRect();
+                    if (r.width === 0) return null;
+                    if (r.x < vw * 0.8) return null;
+                    return {i: i, text: (b.innerText || '').trim().slice(0, 30),
+                            w: Math.round(r.width), x: Math.round(r.x), y: Math.round(r.y)};
+                }).filter(Boolean);
+            }""")
+            print(f"[DEBUG-BGM] 右上角按钮: {buttons_dump}", file=sys.stderr)
+            found = await page.evaluate("""() => {
+                var vw = window.innerWidth;
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    var r = btns[i].getBoundingClientRect();
+                    if (r.width > 10 && r.width < 60 && r.x > vw * 0.85 && r.y < 120) {
+                        return i;
+                    }
+                }
+                return -1;
+            }""")
+            if found < 0:
+                print("[DEBUG-BGM] 未找到播放器图标", file=sys.stderr); return
+
+            btn = page.locator("button").nth(found)
+            await btn.click(timeout=3000)
+            await asyncio.sleep(1.5)
+            print("[DEBUG-BGM] 已点播放器图标", file=sys.stderr)
+
+            # 2. Sound settings 面板：两个 switch，第一个=Sound Effects（不动），
+            # 第二个=Background Music（关闭）
+            await page.evaluate("""() => {
+                var switches = document.querySelectorAll('[role="switch"]');
+                // 遍历找 aria-checked='true' 的——它们是开着的
+                var musicSwitches = [];
+                for (var i = 0; i < switches.length; i++) {
+                    if (switches[i].getAttribute('aria-checked') === 'true')
+                        musicSwitches.push(switches[i]);
+                }
+                // 点最后一个（background music 在最下面）
+                var result = 'no-match';
+                if (musicSwitches.length >= 2) {
+                    musicSwitches[musicSwitches.length - 1].click();
+                    result = 'clicked-bgm';
+                }
+                return {result: result, totalSwitches: switches.length, checkedCount: musicSwitches.length};
+            }""")
+
+            await page.mouse.click(100, 100)
+            await asyncio.sleep(0.5)
+        except Exception as e:
+            print(f"[DEBUG-BGM] BGM关闭失败: {e}", file=sys.stderr)
 
     async def wait_for_ready(self, page: Page, timeout: float = 300) -> None:
         if not self._session_started:

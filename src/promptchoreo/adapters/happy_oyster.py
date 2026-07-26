@@ -72,10 +72,20 @@ class HappyOysterAdapter(SiteAdapter):
         self.config = config or {}
         self._session_started = False
         self._injections_done = False
-        # 视频裁剪时间戳（相对于 backend._video_start_monotonic）
+        self._job_start_monotonic = float(
+            self.config.get("_job_start_monotonic", 0) or 0
+        )
+        self.job_start_time_utc: str | None = self.config.get(
+            "_job_start_time_utc"
+        )
+        self.initial_prompt_time_s: float | None = None
+        self.first_video_chunk_time_s: float | None = None
+        self.generation_complete_time_s: float | None = None
+        self.recording_start_monotonic: float | None = None
+        self._injection_log: list[dict] = []
+        # 外部录屏媒体时间轴起点
         self.generation_start_monotonic: float | None = None
         self.pause_monotonic: float | None = None
-        self.crop_region: str | None = None
         self._max_load_wait = self.config.get("max_load_wait", 600)
         self._post_inject_delay = self.config.get("post_inject_delay", 0.5)
         self._load_wait = self.config.get("load_wait", 3)
@@ -102,6 +112,8 @@ class HappyOysterAdapter(SiteAdapter):
         """
         import sys
 
+        self._begin_job_attempt()
+
         # 已在输入框界面（连接模式复用标签页 / 手动开的浏览器已停在准备页）→ 跳过重载
         already_at_input = await self._is_at_input_box(page)
         if not already_at_input:
@@ -119,9 +131,6 @@ class HappyOysterAdapter(SiteAdapter):
             # 等待准备界面的输入框出现
             input_loc = page.locator(self.SELECTORS["initial_input"])
             await input_loc.wait_for(state="visible", timeout=30000)
-
-        # 打开即全屏，提升 EV 录屏分辨率（连接模式为 no-op 守卫）
-        await self._enter_fullscreen(page)
 
         # 如果配置了 initial_prompt，在 setup 阶段直接启动生成
         # （填初始 prompt → 点 ↑ → 等 100%，不阻塞后续调度）
@@ -147,7 +156,7 @@ class HappyOysterAdapter(SiteAdapter):
 
         顺序要点（关键）：先确认「视频真正开始播放」——以页面顶部
         "REC mm:ss" 计时器从 00:00 开始**递增**为唯一信号——再启动外部录屏
-        并记为裁剪起点。这一步**不依赖**生成中指令输入框。
+        并记为录屏起点。这一步**不依赖**生成中指令输入框。
 
         为什么不用 Pause 按钮文字：提交后有一段加载期（加载到 100%），期间
         Pause 按钮早已显示"暂停"，但画面尚未出帧。若以它为信号，录屏会把
@@ -169,6 +178,20 @@ class HappyOysterAdapter(SiteAdapter):
 
         # 2. 提交（点准备界面的圆形 ↑ 按钮）
         await self._submit_initial(page)
+        self.initial_prompt_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
+        prompt_schedule = self.config.get("_prompt_schedule", [])
+        initial = prompt_schedule[0] if prompt_schedule else {}
+        self._injection_log = [{
+            "prompt_id": initial.get("prompt_id", ""),
+            "role": "initial",
+            "scheduled_media_time_s": 0.0,
+            "actual_media_time_s": 0.0,
+            "actual_injection_time_s": self.initial_prompt_time_s,
+            "status": "accepted",
+            "error": None,
+        }]
 
         # 3. 等「视频真正开始播放」：以页面计时器开始递增为唯一可靠信号。
         #    提交后 Happy Oyster 有一段加载期（加载到 100%），期间 Pause 按钮可能
@@ -196,20 +219,21 @@ class HappyOysterAdapter(SiteAdapter):
             )
 
         # 视频已开始播放（计时器递增）→ 此刻才启动外部录屏。
-        # 这帧同时是视频裁剪起点（不录加载死屏）。
+        # 这帧同时是录屏起点（不录加载死屏）。
         if self._ext_recorder:
             ok = self._ext_recorder.start()
             print(f"[Recorder] 开始录制热键结果: {'成功' if ok else '失败（见上方 traceback）'}", file=sys.stderr)
         else:
             print("[Recorder] 未配置外部录屏，跳过开始", file=sys.stderr)
 
-        # 测出真正的视频内容包围盒，作为裁剪区（去掉顶部/侧边 UI）
-        await self._detect_content_region(page)
+        # 外部录屏和 benchmark 媒体时间轴使用同一个墙钟起点。
+        self.recording_start_monotonic = time.monotonic()
+        self.generation_start_monotonic = self.recording_start_monotonic
+        self.first_video_chunk_time_s = round(
+            self.recording_start_monotonic - self._job_start_monotonic, 1
+        )
 
-        # 记录视频裁剪起点（即计时器开始递增的同一帧）
-        self.generation_start_monotonic = time.monotonic()
-
-        # 关闭配乐（点生成界面 🎵），保留视频原声（不做浏览器层静音）
+        # 是否关闭配乐由 config.bgm_off 控制；False 时不操作任何声音按钮。
         await self._toggle_bgm_off(page)
 
         self._session_started = True
@@ -237,14 +261,16 @@ class HappyOysterAdapter(SiteAdapter):
         )
         if events:
             end_delay = self.config.get("_end_delay", 0.0)
-            try:
-                await self._run_injection_loop(page, events, end_delay)
-            except Exception as e:
-                print(
-                    f"[WARN] 注入循环异常（已跳过注入，生成与录屏保留）: {e}",
-                    file=sys.stderr,
-                )
+            await self._run_injection_loop(page, events, end_delay)
             # 注入循环末尾已点 Pause，标记全部完成
+            self._injections_done = True
+        else:
+            target_duration = float(
+                self.config.get("_required_duration_s")
+                or self.config.get("_end_delay", 0)
+                or 0
+            )
+            await self._finish_recording(page, target_duration)
             self._injections_done = True
 
     async def _submit_initial(self, page: Page) -> None:
@@ -330,15 +356,11 @@ class HappyOysterAdapter(SiteAdapter):
         last_pct: int | None = None
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            await self._raise_if_generation_failed(page)
             try:
                 t = await self._get_page_timer(page)
             except Exception:
                 t = None
-            # 检测生成失败弹窗，直接跳出等外部重试
-            body = await page.evaluate("() => document.body.innerText || ''")
-            if "无法生成" in body or "生成失败" in body or "无法播放" in body:
-                print("[DEBUG] 检测到生成失败，跳出等待", file=sys.stderr)
-                return False
             if t is not None:
                 if last is None:
                     last = t
@@ -362,6 +384,35 @@ class HappyOysterAdapter(SiteAdapter):
                     last_pct = pct
             await asyncio.sleep(0.5)
         return False
+
+    async def _raise_if_generation_failed(self, page: Page) -> None:
+        """Raise a stable site failure when Happy Oyster shows its error page."""
+        message = await page.evaluate(
+            """() => {
+                const text = document.body ? document.body.innerText : "";
+                if (text.includes("内容无法生成")) {
+                    return "内容无法生成，请换个描述试试";
+                }
+                if (text.includes("生成失败")) return "生成失败";
+                if (text.includes("无法播放")) return "无法播放";
+                if (text.includes("Oops") && text.includes("出了点问题")) {
+                    return "Oops / 出了点问题";
+                }
+                return null;
+            }"""
+        )
+        if not message:
+            return
+        self.first_video_chunk_time_s = None
+        self.generation_complete_time_s = None
+        print(
+            f"[ERROR] Happy Oyster 站点生成失败: {message}",
+            file=sys.stderr,
+        )
+        raise RuntimeError(
+            "site_generation_failed: HappyOyster displayed "
+            f"{message!r} and produced no valid video"
+        )
 
     async def _get_loading_pct(self, page: Page) -> int | None:
         """读取页面加载百分比（如「89%」），返回 int 或 None。
@@ -405,26 +456,36 @@ class HappyOysterAdapter(SiteAdapter):
         poll_interval = 0.25
 
         targets = sorted(
-            [(float(e["time"]), str(e["prompt"])) for e in events],
+            [
+                (
+                    float(e["time"]),
+                    str(e["prompt"]),
+                    e.get("prompt_id", ""),
+                    e.get("role", "update"),
+                )
+                for e in events
+            ],
             key=lambda x: x[0],
         )
         if not targets:
             return
         print(
             f"[DEBUG] 注入循环启动，共 {len(targets)} 个目标: "
-            f"{[f'{t:.0f}s' for t, _ in targets]}（轮询间隔 {poll_interval*1000:.0f}ms，容差 ±{tolerance:.0f}s）",
+            f"{[f'{t:.0f}s' for t, _, _, _ in targets]}"
+            f"（轮询间隔 {poll_interval*1000:.0f}ms，容差 ±{tolerance:.0f}s）",
             file=sys.stderr,
         )
 
         idx = 0
         last_inject_at_target: float | None = None
         while idx < len(targets):
+            await self._raise_if_generation_failed(page)
             current = await self._get_page_timer(page)
             if current is None:
                 await asyncio.sleep(poll_interval)
                 continue
 
-            target_time, prompt = targets[idx]
+            target_time, prompt, prompt_id, role = targets[idx]
             if current >= target_time - tolerance:
                 if last_inject_at_target == target_time:
                     await asyncio.sleep(poll_interval)
@@ -437,6 +498,17 @@ class HappyOysterAdapter(SiteAdapter):
                     file=sys.stderr,
                 )
                 await self._do_inject(page, prompt)
+                self._injection_log.append({
+                    "prompt_id": prompt_id,
+                    "role": role,
+                    "scheduled_media_time_s": target_time,
+                    "actual_media_time_s": round(float(current), 1),
+                    "actual_injection_time_s": round(
+                        time.monotonic() - self._job_start_monotonic, 1
+                    ),
+                    "status": "accepted",
+                    "error": None,
+                })
                 last_inject_at_target = target_time
                 idx += 1
                 await asyncio.sleep(0.3)
@@ -455,19 +527,43 @@ class HappyOysterAdapter(SiteAdapter):
         last_prompt = targets[-1][1]
         await self._wait_for_notification(page, last_prompt)
 
-        print(f"[DEBUG] 等待 end_delay={end_delay} → tail={tail:.0f}s 后同时结束录屏和生成",
-              file=sys.stderr)
-        await asyncio.sleep(tail)
+        target_duration = targets[-1][0] + tail
+        print(
+            f"[DEBUG] end_delay={end_delay} → 目标总录制时长 {target_duration:.0f}s",
+            file=sys.stderr,
+        )
+        await self._finish_recording(page, target_duration)
 
-        # 先停录屏 → 立刻点 Pause 结束生成（背靠背，不 sleep）
+    async def _finish_recording(self, page: Page, target_duration: float) -> None:
+        """Wait to the requested wall-clock duration, then stop and pause."""
+        clock_start = self.recording_start_monotonic
+        if clock_start is None:
+            raise RuntimeError("Happy Oyster 录屏计时起点尚未建立")
+
+        remaining = target_duration - (time.monotonic() - clock_start)
+        if remaining > 0:
+            print(
+                f"[DEBUG] 等待 {remaining:.1f}s 至目标录制时长 "
+                f"{target_duration:.0f}s",
+                file=sys.stderr,
+            )
+        while remaining > 0:
+            await self._raise_if_generation_failed(page)
+            await asyncio.sleep(min(0.5, remaining))
+            remaining = target_duration - (time.monotonic() - clock_start)
+        await self._raise_if_generation_failed(page)
+
         print("[DEBUG] 停止录屏 → 立刻 Pause 结束生成", file=sys.stderr)
         await self._recorder_stop(page)
         try:
             pause_btn = page.locator(self.SELECTORS["pause_button"])
             await pause_btn.first.click(timeout=5000)
             self.pause_monotonic = time.monotonic()
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[WARN] Pause 点击失败: {exc}", file=sys.stderr)
+        self.generation_complete_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
 
     async def _wait_for_notification(
         self, page: Page, prompt: str,
@@ -486,6 +582,7 @@ class HappyOysterAdapter(SiteAdapter):
         deadline = _time.monotonic() + appear_timeout
         appeared = False
         while _time.monotonic() < deadline:
+            await self._raise_if_generation_failed(page)
             found = await page.evaluate(
                 """(prompt) => {
                     const ta = document.querySelector(
@@ -525,6 +622,7 @@ class HappyOysterAdapter(SiteAdapter):
         # —— 阶段 2：等待通知消失 ——
         deadline = _time.monotonic() + fade_timeout
         while _time.monotonic() < deadline:
+            await self._raise_if_generation_failed(page)
             found = await page.evaluate(
                 """(prompt) => {
                     const ta = document.querySelector(
@@ -737,7 +835,6 @@ class HappyOysterAdapter(SiteAdapter):
         self._injections_done = False
         self.generation_start_monotonic = None
         self.pause_monotonic = None
-        self.crop_region = None
         self._recorder_stopped = False
 
     async def teardown(self, page: Page) -> None:

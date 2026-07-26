@@ -6,12 +6,15 @@
     python scripts/download_pv_videos.py --date 2026.07.19  # 下载指定日期
 """
 import argparse, asyncio, json, os, re
+from pathlib import Path
+
 from playwright.async_api import async_playwright
 
-USER_DATA = "C:/Users/19515/.workbuddy/browser_data_pixverse"
-GENERATE_URL = "https://world.pixverse.ai/generate/"
-DOWNLOADED_FILE = "D:/PromptChoreo/.downloaded_pv.json"
-DOWNLOAD_DIR = "D:/PromptChoreo/outputs/downloads/pixverse"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+USER_DATA = str(Path.home() / ".workbuddy" / "browser_data_pixverse")
+GENERATE_URL = "https://world.pixverse.video/generate/"
+DOWNLOADED_FILE = str(PROJECT_ROOT / ".downloaded_pv.json")
+DOWNLOAD_DIR = str(PROJECT_ROOT / "outputs" / "downloads" / "pixverse")
 
 def load_downloaded():
     if os.path.exists(DOWNLOADED_FILE):

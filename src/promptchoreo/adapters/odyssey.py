@@ -21,12 +21,29 @@ from typing import Any
 
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeout
 
-from .base import SiteAdapter
+from .base import RetryCurrentJob, SiteAdapter
 
 
 class SessionEndedError(Exception):
     """Odyssey 会话时长耗尽，弹出了「Your Session Ended」。"""
     pass
+
+
+class ContentBlockedError(Exception):
+    """Odyssey 拒绝了 prompt，并显示 Content Blocked。"""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        prompt_event: dict | None = None,
+        prompt_events: list[dict] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.prompt_event = prompt_event
+        self.prompt_events = prompt_events or (
+            [prompt_event] if prompt_event is not None else []
+        )
 
 
 class OdysseyAdapter(SiteAdapter):
@@ -51,15 +68,37 @@ class OdysseyAdapter(SiteAdapter):
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config = config or {}
         self._session_started = False
+        self._injections_done = False
         self.generation_start_monotonic: float | None = None
+        self.recording_start_monotonic: float | None = None
         self.stop_monotonic: float | None = None
         self.crop_region: str | None = None
+        self._job_start_monotonic = float(
+            self.config.get("_job_start_monotonic", 0) or 0
+        )
+        self.job_start_time_utc: str | None = self.config.get(
+            "_job_start_time_utc"
+        )
+        self.initial_prompt_time_s: float | None = None
+        self.first_video_chunk_time_s: float | None = None
+        self.generation_complete_time_s: float | None = None
+        self._injection_log: list[dict] = []
+        self._retry_reason: str | None = None
+        self._video_wait_retry_count = 0
+        # Odyssey 在 Try Again 后的第一轮生成经常卡在 loading。
+        # 该标记用于在真正的 job 重试前先消耗一次占位生成作为预热。
+        self._warmup_needed_after_retry = False
         self._max_queue_wait = self.config.get("max_queue_wait", 300)
         self._post_inject_delay = self.config.get("post_inject_delay", 0.5)
         # 站点加载不稳定时，可在 yaml 里调大（单位秒），默认 8s
         self._load_wait = float(self.config.get("load_wait", 8))
 
+    @property
+    def is_done(self) -> bool:
+        return self._injections_done
+
     async def setup(self, page: Page) -> None:
+        self._begin_job_attempt()
         # 若标签页已停在输入框界面（上一次 run 的 teardown 已点 X 复位，
         # 或 launch 脚本直接开在这），跳过整页重载，直接复用——省一次网络请求，
         # 也避免重置用户手动开的全屏。
@@ -84,9 +123,94 @@ class OdysseyAdapter(SiteAdapter):
         await self._enter_fullscreen(page)
 
         initial_prompt = self.config.get("initial_prompt")
-        if initial_prompt:
-            print(f"[DEBUG] setup 阶段启动模拟: initial_prompt={initial_prompt!r}", file=sys.stderr)
-            await self._start_session(page, str(initial_prompt))
+        while True:
+            # 在填写 initial prompt 之前确认当前会话剩余时间足够完成整个 job。
+            # 剩余时间不足时，先等待会话自然耗尽，再点 Try Again 获取新会话。
+            await self._ensure_session_budget(page)
+            if self._warmup_needed_after_retry:
+                await self._run_retry_warmup(page)
+                self._warmup_needed_after_retry = False
+            try:
+                if initial_prompt:
+                    print(
+                        f"[DEBUG] setup 阶段启动模拟: initial_prompt={initial_prompt!r}",
+                        file=sys.stderr,
+                    )
+                    await self._start_session(page, str(initial_prompt))
+                return
+            except RetryCurrentJob as exc:
+                self._video_wait_retry_count += 1
+                self._retry_reason = str(exc)
+                self._session_started = False
+                self._injections_done = False
+                self.generation_start_monotonic = None
+                self.recording_start_monotonic = None
+                self.stop_monotonic = None
+                self.crop_region = None
+                self._injection_log = []
+                self.initial_prompt_time_s = None
+                self.first_video_chunk_time_s = None
+                self.generation_complete_time_s = None
+                self._warmup_needed_after_retry = True
+                self._begin_job_attempt(force=True)
+                print(
+                    "[SessionBudget] 已点击 Try Again；"
+                    f"同一 job 开始第 {self._video_wait_retry_count + 1} 次尝试",
+                    file=sys.stderr,
+                )
+
+    async def _run_retry_warmup(self, page: Page) -> None:
+        """Use and discard the first generation after ``Try Again``.
+
+        Odyssey can leave the first post-reset generation in a loading state.
+        Submit a harmless placeholder without starting the recorder, wait until
+        the generation view is entered (or a short safety deadline expires),
+        then close it so the real benchmark job starts from a clean input page.
+        """
+        warmup_prompt = "warmup"
+        print(
+            "[SessionBudget] Try Again 后执行一次占位生成预热（不录制、不计入当前 job）",
+            file=sys.stderr,
+        )
+
+        input_loc = page.locator(self.SELECTORS["landing_textarea"])
+        await input_loc.wait_for(state="visible", timeout=15000)
+        await input_loc.click()
+        await input_loc.fill(warmup_prompt)
+        await asyncio.sleep(0.2)
+
+        submit_btn = page.locator(self.SELECTORS["submit_button"])
+        await submit_btn.wait_for(state="visible", timeout=10000)
+        await submit_btn.click()
+
+        # 只确认占位请求已经离开输入页/进入 simulating，不等待视频渲染。
+        # 若首轮确实卡在 loading，安全期限到后仍执行关闭和复位。
+        deadline = time.monotonic() + min(float(self._max_queue_wait), 30.0)
+        while time.monotonic() < deadline:
+            if await self._check_session_ended(page, raise_if_ended=False):
+                await self._dismiss_session_ended(page)
+                return
+
+            try:
+                body_text = await page.evaluate("() => document.body.innerText || ''")
+                if re.search(r"simulating", body_text, re.I):
+                    break
+            except Exception:
+                pass
+
+            try:
+                if not await input_loc.is_visible(timeout=500):
+                    break
+            except Exception:
+                break
+            await asyncio.sleep(0.5)
+
+        await asyncio.sleep(0.5)
+        await self._reset_to_input(page)
+        await page.locator(self.SELECTORS["landing_textarea"]).wait_for(
+            state="visible", timeout=15000
+        )
+        print("[SessionBudget] 占位生成已跳过，开始当前 job", file=sys.stderr)
 
     async def submit_prompt(self, page: Page, prompt: str, target_time: float | None = None) -> None:
         if not self._session_started:
@@ -94,7 +218,193 @@ class OdysseyAdapter(SiteAdapter):
         else:
             await self._inject_command(page, prompt)
 
+    async def _get_top_timer_seconds(self, page: Page) -> float | None:
+        """读取页面顶部居中的 M:SS 倒计时，返回剩余秒数。"""
+        try:
+            return await page.evaluate(
+                """() => {
+                    const candidates = [];
+                    const els = document.querySelectorAll('*');
+                    for (const el of els) {
+                        const r = el.getBoundingClientRect();
+                        if (r.width <= 0 || r.height <= 0 || r.top < -2 || r.top > 120)
+                            continue;
+                        if (r.width > 180 || r.height > 80)
+                            continue;
+                        const text = (el.textContent || '').trim().replace(/\\s+/g, ' ');
+                        const m = text.match(/^(\\d{1,3}):(\\d{2})$/);
+                        if (!m) continue;
+                        const seconds = Number(m[1]) * 60 + Number(m[2]);
+                        candidates.push({
+                            seconds,
+                            text,
+                            top: r.top,
+                            centerDistance: Math.abs((r.left + r.width / 2) - innerWidth / 2),
+                            area: r.width * r.height,
+                        });
+                    }
+                    candidates.sort((a, b) =>
+                        a.centerDistance - b.centerDistance ||
+                        a.top - b.top || a.area - b.area
+                    );
+                    return candidates.length ? candidates[0].seconds : null;
+                }"""
+            )
+        except Exception as exc:
+            print(f"[SessionBudget] 读取顶部倒计时失败: {exc}", file=sys.stderr)
+            return None
+
+    async def _ensure_session_budget(self, page: Page) -> None:
+        """initial prompt 前确保剩余会话时间足够完成当前 job。"""
+        required = float(self.config.get("_required_duration_s", 0) or 0)
+        guard = float(self.config.get("_session_guard_s", 15) or 15)
+        if required <= 0:
+            return
+
+        # 页面刚加载时倒计时可能还未挂载，短暂轮询后再决定。
+        remaining: float | None = None
+        for _ in range(40):
+            remaining = await self._get_top_timer_seconds(page)
+            if remaining is not None:
+                break
+            await asyncio.sleep(0.25)
+
+        if remaining is None:
+            print(
+                "[SessionBudget] 未检测到顶部倒计时，继续执行 job（不自动等待超时）",
+                file=sys.stderr,
+            )
+            return
+
+        threshold = required + guard
+        print(
+            f"[SessionBudget] 当前剩余 {remaining:.0f}s；"
+            f"job 需要 {required:.0f}s + 安全余量 {guard:.0f}s = {threshold:.0f}s",
+            file=sys.stderr,
+        )
+        if remaining >= threshold:
+            print("[SessionBudget] 剩余时间足够，直接开始 job", file=sys.stderr)
+            return
+
+        print(
+            "[SessionBudget] 剩余时间不足，等待会话耗尽后点击 Try Again",
+            file=sys.stderr,
+        )
+        deadline = time.monotonic() + max(remaining + 30, 60)
+        while time.monotonic() < deadline:
+            if await self._check_session_ended(page, raise_if_ended=False):
+                await self._dismiss_session_ended(page)
+                print("[SessionBudget] 已获取新会话，继续当前 job", file=sys.stderr)
+                return
+            await asyncio.sleep(0.5)
+
+        raise RuntimeError(
+            "等待会话超时：未检测到 Your Session Ended 弹窗，"
+            "为避免在剩余时间不足时提交 initial prompt，已停止当前 job"
+        )
+
+    async def _raise_if_content_blocked(
+        self, page: Page, prompt_event: dict | None = None
+    ) -> None:
+        """Raise a structured error when Odyssey shows its moderation dialog."""
+        try:
+            body_text = await page.evaluate("() => document.body.innerText || ''")
+        except Exception:
+            return
+
+        if not re.search(
+            r"content\s+blocked|flagged\s+for\s+inappropriate\s+content",
+            body_text,
+            re.I,
+        ):
+            return
+
+        error = (
+            "content_blocked: Your request was flagged for inappropriate content."
+        )
+        failed_event = None
+        if prompt_event is not None:
+            failed_event = dict(prompt_event)
+            failed_event.update({"status": "failed", "error": error})
+            self._injection_log = [*self._injection_log, failed_event]
+
+        print(f"[ContentBlocked] {error}", file=sys.stderr)
+        await self._dismiss_content_blocked(page)
+        raise ContentBlockedError(
+            error,
+            prompt_event=failed_event,
+            prompt_events=list(self._injection_log),
+        )
+
+    async def _dismiss_content_blocked(self, page: Page) -> None:
+        """Stop recording, close the moderation dialog, and reset the page."""
+        if self._session_started or self.recording_start_monotonic is not None:
+            print("[ContentBlocked] 先停止当前录屏", file=sys.stderr)
+            await self._recorder_stop(page)
+
+        clicked = False
+        try:
+            # 从精确标题向上寻找最近的弹窗容器，再点其中右上角的按钮。
+            # Odyssey 当前弹窗只有一个 X 按钮；按位置选择可避免误点页面按钮。
+            clicked = bool(
+                await page.evaluate(
+                    """() => {
+                        const visible = (el) => {
+                            const r = el.getBoundingClientRect();
+                            const s = getComputedStyle(el);
+                            return r.width > 0 && r.height > 0 &&
+                                s.visibility !== 'hidden' && s.display !== 'none';
+                        };
+                        const title = [...document.querySelectorAll('*')].find(
+                            (el) => visible(el) &&
+                                (el.textContent || '').trim() === 'Content Blocked'
+                        );
+                        if (!title) return false;
+
+                        let container = title;
+                        for (let depth = 0; container && depth < 7; depth++) {
+                            const buttons = [
+                                ...container.querySelectorAll(
+                                    'button, [role="button"]'
+                                )
+                            ]
+                                .filter(visible);
+                            if (buttons.length) {
+                                const cr = container.getBoundingClientRect();
+                                buttons.sort((a, b) => {
+                                    const ar = a.getBoundingClientRect();
+                                    const br = b.getBoundingClientRect();
+                                    const as = Math.abs(cr.right - ar.right) +
+                                        Math.abs(cr.top - ar.top);
+                                    const bs = Math.abs(cr.right - br.right) +
+                                        Math.abs(cr.top - br.top);
+                                    return as - bs;
+                                });
+                                buttons[0].click();
+                                return true;
+                            }
+                            container = container.parentElement;
+                        }
+                        return false;
+                    }"""
+                )
+            )
+        except Exception as exc:
+            print(f"[ContentBlocked] 点击弹窗 X 失败: {exc}", file=sys.stderr)
+
+        if clicked:
+            print("[ContentBlocked] 已点击弹窗右上角 X", file=sys.stderr)
+        else:
+            print(
+                "[ContentBlocked] 未定位到弹窗 X，继续尝试页面复位按钮",
+                file=sys.stderr,
+            )
+
+        await asyncio.sleep(0.5)
+        await self._reset_to_input(page)
+
     async def _start_session(self, page: Page, prompt: str) -> None:
+        self._begin_job_attempt()
         input_loc = page.locator(self.SELECTORS["landing_textarea"])
         await input_loc.wait_for(state="visible", timeout=60000)
         await input_loc.click()
@@ -104,11 +414,27 @@ class OdysseyAdapter(SiteAdapter):
         submit_btn = page.locator(self.SELECTORS["submit_button"])
         await submit_btn.wait_for(state="visible", timeout=10000)
         await submit_btn.click()
+        self.initial_prompt_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
+        prompt_schedule = self.config.get("_prompt_schedule", [])
+        initial = prompt_schedule[0] if prompt_schedule else {}
+        initial_event = {
+            "prompt_id": initial.get("prompt_id", ""),
+            "role": "initial",
+            "scheduled_media_time_s": 0.0,
+            "actual_media_time_s": 0.0,
+            "actual_injection_time_s": self.initial_prompt_time_s,
+            "status": "accepted",
+            "error": None,
+        }
+        await self._raise_if_content_blocked(page, initial_event)
 
         print("[DEBUG] 等待模拟就绪...", file=sys.stderr)
         deadline = time.monotonic() + self._max_queue_wait
         while time.monotonic() < deadline:
             body_text = await page.evaluate("() => document.body.innerText || ''")
+            await self._raise_if_content_blocked(page, initial_event)
             if re.search(r"simulating", body_text, re.I):
                 print("[DEBUG] 检测到 'simulating' 文本", file=sys.stderr)
                 break
@@ -121,6 +447,16 @@ class OdysseyAdapter(SiteAdapter):
         self.generation_start_monotonic = time.monotonic()
         self._session_started = True
         await self._recorder_start(page)
+        # 外部录屏热键在 _recorder_start() 内发送；从这里开始，时间轴和录屏
+        # 使用同一个起点。不能使用 generation_start_monotonic，因为它早于
+        # 等待视频就绪和发送录屏热键，通常会造成首条 prompt 提前数秒。
+        self.recording_start_monotonic = time.monotonic()
+        print(
+            "[DEBUG] 录屏计时起点已建立："
+            f"generation_start={self.generation_start_monotonic:.3f}, "
+            f"recording_start={self.recording_start_monotonic:.3f}",
+            file=sys.stderr,
+        )
 
         await asyncio.sleep(5)
 
@@ -140,6 +476,88 @@ class OdysseyAdapter(SiteAdapter):
             if self.crop_region:
                 break
             await asyncio.sleep(1)
+
+        # 记录 initial prompt（spec 格式）
+        self._injection_log = []
+        self._injection_log.append(initial_event)
+
+        # 注入循环：消费后续 update 事件
+        events = self.config.get("_inject_events", [])
+        end_delay = self.config.get("_end_delay", 0.0)
+        await self._run_injection_loop(page, events, end_delay)
+        self._injections_done = True
+
+    async def _wait_video_ready(self, page: Page, timeout: float = 6) -> None:
+        """无限等待首个视频画面，同时守住完成当前 job 的会话时间预算。
+
+        ``timeout`` 仅为兼容基类签名；Odyssey 不再按固定秒数放弃等待。只要
+        剩余会话时间仍大于 ``job 时长 + 3s`` 就继续等待。如果触及底线，
+        本次生成永久放弃，即使视频随后出现也不会启动录屏。
+        """
+        required = float(self.config.get("_required_duration_s", 0) or 0)
+        guard = float(self.config.get("_render_guard_s", 3) or 3)
+        threshold = required + guard
+        print(
+            "[DEBUG] 等待 Odyssey 视频元素开始渲染（不设固定超时）；"
+            f"会话时间底线={required:.0f}s+{guard:.0f}s={threshold:.0f}s",
+            file=sys.stderr,
+        )
+
+        while True:
+            if await self._check_session_ended(page, raise_if_ended=False):
+                await self._wait_for_session_end_and_reset(page)
+                raise RetryCurrentJob("session_ended_while_waiting_for_video")
+
+            remaining = await self._get_top_timer_seconds(page)
+            if required > 0 and remaining is not None and remaining <= threshold:
+                print(
+                    f"[SessionBudget] 等待视频时剩余 {remaining:.0f}s，"
+                    f"已达到 job 时长 + {guard:.0f}s 的放弃线；"
+                    "本次结果不录制，等待会话耗尽",
+                    file=sys.stderr,
+                )
+                await self._wait_for_session_end_and_reset(page)
+                raise RetryCurrentJob(
+                    "insufficient_session_time_while_waiting_for_video"
+                )
+
+            ready = await page.evaluate(
+                """() => {
+                    const els = document.querySelectorAll('video, canvas');
+                    for (const el of els) {
+                        const r = el.getBoundingClientRect();
+                        if (r.width < 50 || r.height < 50) continue;
+                        if (el.tagName === 'VIDEO') {
+                            if (el.readyState >= 2 && el.videoWidth > 0) return true;
+                        } else {
+                            return true;
+                        }
+                    }
+                    return false;
+                }"""
+            )
+            if ready:
+                self.first_video_chunk_time_s = round(
+                    time.monotonic() - self._job_start_monotonic, 1
+                )
+                print(
+                    "[DEBUG] Odyssey 视频元素已开始渲染，可以开始录制",
+                    file=sys.stderr,
+                )
+                return
+
+            await asyncio.sleep(0.3)
+
+    async def _wait_for_session_end_and_reset(self, page: Page) -> None:
+        """Once an attempt is abandoned, ignore late video and wait for reset."""
+        while True:
+            if await self._check_session_ended(page, raise_if_ended=False):
+                await self._dismiss_session_ended(page)
+                await page.locator(
+                    self.SELECTORS["landing_textarea"]
+                ).wait_for(state="visible", timeout=15000)
+                return
+            await asyncio.sleep(0.5)
 
     async def _check_session_ended(self, page: Page, *, raise_if_ended: bool = True) -> bool:
         """检测 Odyssey 会话超时弹窗「Your Session Ended」。
@@ -195,7 +613,12 @@ class OdysseyAdapter(SiteAdapter):
             await asyncio.sleep(3)
         return None
 
-    async def _inject_command(self, page: Page, command: str) -> None:
+    async def _inject_command(
+        self,
+        page: Page,
+        command: str,
+        prompt_event: dict | None = None,
+    ) -> None:
         # 注入前检查会话是否已耗尽——若弹出「Your Session Ended」，立即中断
         await self._check_session_ended(page)
 
@@ -222,8 +645,119 @@ class OdysseyAdapter(SiteAdapter):
             await self._check_session_ended(page)
             raise  # 不是超时弹窗 → 原样抛出 timeout
 
+        if prompt_event is not None:
+            prompt_event["actual_injection_time_s"] = round(
+                time.monotonic() - self._job_start_monotonic, 1
+            )
+        await self._raise_if_content_blocked(page, prompt_event)
+
         if self._post_inject_delay > 0:
             await asyncio.sleep(self._post_inject_delay)
+
+    async def _run_injection_loop(
+        self, page: Page, events: list[dict], end_delay: float
+    ) -> None:
+        """按墙钟在精准时刻注入后续 prompt（Odyssey 无 video.currentTime）。"""
+        clock_start = self.recording_start_monotonic or self.generation_start_monotonic
+        if clock_start is None:
+            raise RuntimeError("录屏计时起点尚未建立")
+
+        poll_interval = 0.25
+        targets = sorted(
+            [
+                (float(e["time"]), str(e["prompt"]),
+                 e.get("prompt_id", ""), e.get("role", "update"))
+                for e in events
+                if float(e.get("time", 0)) > 0
+            ],
+            key=lambda x: x[0],
+        )
+        if not targets:
+            print("[DEBUG] 无注入事件（仅 initial prompt），等待录制时长后停录屏", file=sys.stderr)
+            target_duration = end_delay
+            remaining = target_duration - (time.monotonic() - clock_start)
+            if remaining > 0:
+                print(f"[DEBUG] 等待 {remaining:.0f}s 至录制时长 {target_duration:.0f}s", file=sys.stderr)
+                await asyncio.sleep(remaining)
+            self.generation_complete_time_s = round(
+                time.monotonic() - self._job_start_monotonic, 1
+            )
+            print("[DEBUG] 停止录屏 → 立刻点 X 结束生成", file=sys.stderr)
+            await self._recorder_stop(page)
+            await self._reset_to_input(page)
+            return
+        print(
+            f"[DEBUG] 注入循环启动，共 {len(targets)} 个目标: "
+            f"{[f'{t:.0f}s' for t, _, _, _ in targets]}（轮询 {poll_interval*1000:.0f}ms，按录屏时间到点注入）",
+            file=sys.stderr,
+        )
+
+        idx = 0
+        last_inject_at_target: float | None = None
+        last_activity = time.monotonic()
+        while idx < len(targets):
+            elapsed = time.monotonic() - clock_start
+            target_time, prompt, prompt_id, role = targets[idx]
+            # 不提前触发：prompt 时间严格相对于外部录屏开始时刻。
+            # 轮询间隔最多带来约 250ms 的晚到，不再允许提前 0.8s 注入。
+            if elapsed >= target_time:
+                if last_inject_at_target == target_time:
+                    await asyncio.sleep(poll_interval)
+                    continue
+
+                drift = elapsed - target_time
+                print(
+                    f"[DEBUG] 注入 t={target_time:.0f}s → 墙钟已过 {elapsed:.1f}s "
+                    f"(偏差 {drift:+.1f}s)",
+                    file=sys.stderr,
+                )
+                prompt_event = {
+                    "prompt_id": prompt_id,
+                    "role": role,
+                    "scheduled_media_time_s": target_time,
+                    "actual_media_time_s": round(elapsed, 1),
+                    "actual_injection_time_s": None,
+                    "status": "accepted",
+                    "error": None,
+                }
+                await self._inject_command(page, prompt, prompt_event)
+                self._injection_log.append(prompt_event)
+                last_inject_at_target = target_time
+                idx += 1
+                last_activity = time.monotonic()
+                await asyncio.sleep(0.3)
+                continue
+
+            # 超时保护：120s 无注入则跳出
+            if time.monotonic() - last_activity > 120:
+                print("[WARN] 注入循环超时（120s无注入），跳出", file=sys.stderr)
+                break
+
+            await asyncio.sleep(poll_interval)
+
+        # 收尾
+        last_target_time = max(t[0] for t in targets)
+        if end_delay:
+            extra = end_delay
+        elif len(targets) >= 2:
+            extra = targets[1][0] - targets[0][0]
+        else:
+            extra = 10
+        target_duration = last_target_time + extra
+        remaining = target_duration - (time.monotonic() - clock_start)
+        if remaining > 0:
+            print(
+                f"[DEBUG] 注入完成，等待 {remaining:.0f}s 至录制时长 {target_duration:.0f}s 后停录屏",
+                file=sys.stderr,
+            )
+            await asyncio.sleep(remaining)
+
+        self.generation_complete_time_s = round(
+            time.monotonic() - self._job_start_monotonic, 1
+        )
+        print("[DEBUG] 停止录屏 → 立刻点 X 结束生成", file=sys.stderr)
+        await self._recorder_stop(page)
+        await self._reset_to_input(page)
 
     async def wait_for_ready(self, page: Page, timeout: float = 300) -> None:
         if not self._session_started:
@@ -255,6 +789,7 @@ class OdysseyAdapter(SiteAdapter):
             print("[DEBUG] 已在输入框界面，跳过复位点击", file=sys.stderr)
             self._session_started = False
             self.generation_start_monotonic = None
+            self.recording_start_monotonic = None
             self.crop_region = None
             return
         except Exception:
@@ -265,6 +800,7 @@ class OdysseyAdapter(SiteAdapter):
             await self._dismiss_session_ended(page)
             self._session_started = False
             self.generation_start_monotonic = None
+            self.recording_start_monotonic = None
             self.crop_region = None
             return
 
@@ -300,4 +836,5 @@ class OdysseyAdapter(SiteAdapter):
         # 清空内部状态，下一次 run 视为全新会话
         self._session_started = False
         self.generation_start_monotonic = None
+        self.recording_start_monotonic = None
         self.crop_region = None

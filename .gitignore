@@ -3,7 +3,9 @@
 .exploration/
 outputs/
 .workbuddy/
-browser_data_odyssey/
+browser_data_*/
+.claude/worktrees/
+bench_yamls/
 __pycache__/
 *.pyc
 *.pyo
@@ -17,3 +19,5 @@ build/
 venv/
 env/
 *.log
+.downloaded_*.json
+StreamAVBench_closed_source_web_package/

@@ -60,7 +60,7 @@ class BrowserBackend(Backend):
         self.record_video_dir = record_video_dir
         self.console = console or Console()
         self.channel = channel
-        self.viewport = viewport or {"width": 1920, "height": 1080}
+        self.viewport = viewport or {"width": 2560, "height": 1440}
         # mute=False 默认：用户希望听到视频原声（仅配乐通过界面 🎵 关闭）。
         # 仅当显式 mute=True 时才在浏览器层 --mute-audio 彻底静音。
         self.mute = mute
@@ -75,8 +75,11 @@ class BrowserBackend(Backend):
 
     @property
     def recording_start(self) -> float | None:
-        """适配器在 setup 阶段启动录屏的时刻（monotonic）。"""
-        return getattr(self.adapter, "generation_start_monotonic", None)
+        """适配器发送录屏开始热键后的时间（monotonic）。"""
+        return (
+            getattr(self.adapter, "recording_start_monotonic", None)
+            or getattr(self.adapter, "generation_start_monotonic", None)
+        )
 
     async def start(self) -> None:
         from playwright.async_api import async_playwright
@@ -132,10 +135,7 @@ class BrowserBackend(Backend):
             self.console.print("[dim]站点适配器初始化完成[/]")
             return
 
-        # 全屏（kiosk）模式下让 viewport 匹配屏幕原生分辨率，EV 录到最高清
-        screen = _get_screen_size()
-        if screen and not self.headless:
-            self.viewport = screen
+        # 不覆盖——用 CLI 传入的 viewport 或默认 2560x1440
 
         video_kwargs = {}
         if self.record_video_dir:
@@ -152,7 +152,7 @@ class BrowserBackend(Backend):
                 slow_mo=self.slow_mo,
                 viewport=self.viewport,
                 channel=self.channel,
-                args=["--no-restore", "--use-fake-ui-for-media-stream", "--kiosk", *(["--mute-audio"] if self.mute else [])],
+                args=["--no-restore", "--use-fake-ui-for-media-stream", "--start-maximized", *(["--mute-audio"] if self.mute else [])],
                 **video_kwargs,
             )
             # 显式创建新页面，避免复用浏览器恢复的旧标签
@@ -165,7 +165,7 @@ class BrowserBackend(Backend):
                 headless=self.headless,
                 slow_mo=self.slow_mo,
                 channel=self.channel,
-                args=["--use-fake-ui-for-media-stream", "--kiosk", *(["--mute-audio"] if self.mute else [])],
+                args=["--use-fake-ui-for-media-stream", "--start-maximized", *(["--mute-audio"] if self.mute else [])],
             )
             self._context = await self._browser.new_context(
                 viewport=self.viewport, **video_kwargs

@@ -119,8 +119,8 @@ def dry_run(timeline: str) -> None:
     help="使用系统安装的 Chrome（而非 Playwright 自带的 Chromium）",
 )
 @click.option(
-    "--resolution", type=str, default="1920x1080",
-    help="视口分辨率 WxH（默认 1920x1080）",
+    "--resolution", type=str, default="2560x1440",
+    help="视口分辨率 WxH（默认 2560x1440）",
 )
 @click.option(
     "--cdp", "cdp_url", default=None,
@@ -272,7 +272,7 @@ def _execute_timeline(
 @click.option("--no-record", is_flag=True, default=False, help="禁用视频录制")
 @click.option("--chrome", "use_system_chrome", is_flag=True, default=False,
               help="使用系统安装的 Chrome")
-@click.option("--resolution", type=str, default="1920x1080", help="视口分辨率 WxH")
+@click.option("--resolution", type=str, default="2560x1440", help="视口分辨率 WxH")
 @click.option(
     "--cdp", "cdp_url", default=None,
     help="连接已手动打开的 Chrome for Testing（CDP 地址）。推荐：清单多站点时只开一个浏览器，"

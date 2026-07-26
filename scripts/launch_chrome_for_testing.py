@@ -31,7 +31,7 @@ SITE_USER_DATA = {
 SITE_URLS = {
     "happy_oyster": "https://www.happyoyster.cn/create/directing",
     "odyssey": "https://experience.odyssey.ml/",
-    "pixverse": "https://world.pixverse.ai/generate/",
+    "pixverse": "https://world.pixverse.video/generate/",
 }
 
 
