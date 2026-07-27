@@ -157,18 +157,19 @@ def prepare_subset_work_items(
 
 def filter_work_items_by_duration(
     work_items: list[tuple[str, dict[str, Any] | None]],
-    duration_s: float | None,
+    duration_s: float | tuple[float, ...] | None,
 ) -> list[tuple[str, dict[str, Any] | None]]:
-    """Keep work items whose source job has the requested duration."""
+    """Keep work items whose source job has one of the requested durations."""
     if duration_s is None:
         return work_items
 
-    expected = float(duration_s)
+    requested = duration_s if isinstance(duration_s, tuple) else (duration_s,)
+    expected = {float(value) for value in requested}
     return [
         (filename, job)
         for filename, job in work_items
         if job is not None
-        and float(job.get("duration_s", -1)) == expected
+        and float(job.get("duration_s", -1)) in expected
     ]
 
 

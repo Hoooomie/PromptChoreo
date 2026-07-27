@@ -198,6 +198,39 @@ def load_job_source(phase, job_id):
     return None
 
 
+def build_success_notes(adapter):
+    """Describe non-fatal playback incidents while keeping a valid run successful."""
+    notes = (
+        "Final video is an external screen recording that was spatially "
+        "cropped and re-encoded."
+    )
+    incidents = getattr(adapter, "_content_blocked_events", []) or []
+    if not incidents:
+        return notes
+
+    details = []
+    for incident in incidents:
+        media_time_s = incident.get("media_time_s")
+        time_label = (
+            f"{float(media_time_s):.1f}s"
+            if media_time_s is not None
+            else "unknown media time"
+        )
+        prompt_id = incident.get("prompt_id") or "unknown prompt"
+        details.append(f"{time_label} ({prompt_id})")
+
+    close_status = (
+        "each dialog was closed automatically"
+        if all(incident.get("dialog_closed") for incident in incidents)
+        else "automatic closing was attempted but could not be confirmed for every dialog"
+    )
+    return (
+        f"{notes} During playback, Odyssey displayed Content Blocked "
+        f"{len(incidents)} time(s) at {', '.join(details)}; {close_status}, "
+        "recording continued, and the final video remained usable."
+    )
+
+
 def yaml_to_job_id(filename):
     return filename.replace(".yaml", "").replace("_", ":", 1)
 
@@ -433,10 +466,7 @@ async def run_one(
         "status": "success",
         "failure_reason": None,
         "retry_reason": getattr(adapter, "_retry_reason", None),
-        "notes": (
-            "Final video is an external screen recording that was spatially "
-            "cropped and re-encoded."
-        ),
+        "notes": build_success_notes(adapter),
     }
     with open(os.path.join(out_dir, "run_manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
@@ -542,6 +572,11 @@ async def main_async(args):
                 )
             )
             manifest_path = os.path.join(out_dir, "run_manifest.json")
+            skip_marker_path = os.path.join(out_dir, "skip_job.json")
+            if os.path.exists(skip_marker_path):
+                print(f"\n=== {job_id} ===  [SKIP] 已标记不重试")
+                continue
+
             video_exists = os.path.exists(os.path.join(out_dir, "final_video.mp4"))
             if os.path.exists(manifest_path) and video_exists:
                 with open(manifest_path, encoding="utf-8") as mf:
@@ -598,6 +633,13 @@ def main():
             const=duration_s,
             help=f"只运行当前 phase 中 duration_s={duration_s} 的任务",
         )
+    duration_group.add_argument(
+        "--30+60",
+        dest="duration_filter",
+        action="store_const",
+        const=(30, 60),
+        help="只运行当前 phase 中 duration_s=30 或 60 的任务",
+    )
     parser.set_defaults(duration_filter=None)
     parser.add_argument(
         "--subset",

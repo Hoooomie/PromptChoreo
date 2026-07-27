@@ -347,13 +347,26 @@ async def main_async(args):
                 )
             )
             manifest_path = os.path.join(out_dir, "run_manifest.json")
+            skip_marker_path = os.path.join(out_dir, "skip_job.json")
+            if os.path.exists(skip_marker_path):
+                print(f"\n=== {job_id} ===  [SKIP] 已标记不重试")
+                continue
+
             video_exists = any(
                 f.startswith("final_video.") for f in (os.listdir(out_dir) if os.path.isdir(out_dir) else [])
             )
-            if os.path.exists(manifest_path) and video_exists:
+            if os.path.exists(manifest_path):
                 with open(manifest_path, encoding="utf-8") as mf:
                     m = json.load(mf)
-                if m.get("status") == "success":
+                content_policy_rejection = (
+                    m.get("status") == "failed"
+                    and str(m.get("failure_reason") or "").startswith(
+                        "content_policy_rejection:"
+                    )
+                )
+                if (
+                    m.get("status") == "success" and video_exists
+                ) or content_policy_rejection:
                     print(f"\n=== {job_id} ===  [SKIP] 已完成")
                     continue
 

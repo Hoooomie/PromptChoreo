@@ -22,6 +22,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.promptchoreo.adapters.happy_oyster import HappyOysterAdapter
 from src.promptchoreo.core.media import get_mp4_media_info
 from scripts.bench_subset import (
     DEFAULT_SUBSET_JOBS,
@@ -40,6 +41,7 @@ SUBSET_YAML_DIR = os.path.join(YAML_DIR, "formal_120s_subset_60cases")
 OUTPUT_BASE = "outputs"
 MODEL_ID = "happyoyster"
 MODEL_NAME = "HappyOyster"
+ADAPTER_CLASS = HappyOysterAdapter
 VIDEO_SRC = "outputs/video/ho"
 BROWSER_SIZE = {"width": 2560, "height": 1440}
 VIDEO_EXTS = (".webm", ".mp4", ".mkv", ".mov", ".avi")
@@ -369,8 +371,6 @@ async def run_one(
     args,
 ):
     """Run one job without closing the persistent browser."""
-    from src.promptchoreo.adapters.happy_oyster import HappyOysterAdapter
-
     _remove_video_files(VIDEO_SRC)
 
     with open(yaml_path, encoding="utf-8") as f:
@@ -415,7 +415,7 @@ async def run_one(
             "stop_hotkey", "ctrl+f2"
         )
 
-    adapter = HappyOysterAdapter(config)
+    adapter = ADAPTER_CLASS(config)
     try:
         await adapter.setup(page)
 
@@ -559,11 +559,9 @@ async def main_async(args):
         return
 
     from playwright.async_api import async_playwright
-    from src.promptchoreo.adapters.happy_oyster import HappyOysterAdapter
-
     async with async_playwright() as playwright:
         context = await playwright.chromium.launch_persistent_context(
-            HappyOysterAdapter.user_data_dir,
+            ADAPTER_CLASS.user_data_dir,
             headless=False,
             # EV 锁定的是 Chrome 创建时的整个窗口尺寸。不要设置 Playwright
             # viewport（会额外叠加浏览器栏），也不要最大化（会扣掉任务栏 48px）。

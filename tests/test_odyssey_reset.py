@@ -1,11 +1,12 @@
 """Odyssey 复位逻辑测试：点 X → 回到输入框界面，并清空内部会话状态。"""
 
 import asyncio
+import time
 
 import pytest
 
 from promptchoreo.adapters.base import RetryCurrentJob
-from promptchoreo.adapters.odyssey import OdysseyAdapter
+from promptchoreo.adapters.odyssey import ContentBlockedError, OdysseyAdapter
 
 
 class FakeLocator:
@@ -229,3 +230,90 @@ def test_setup_retries_same_job_after_video_wait_abandonment():
         adapter._retry_reason
         == "insufficient_session_time_while_waiting_for_video"
     )
+
+
+def test_playback_content_blocked_is_closed_and_recording_continues():
+    adapter = OdysseyAdapter({"_connect_mode": True})
+    adapter._session_started = True
+    adapter._job_start_monotonic = time.monotonic() - 15
+    adapter.recording_start_monotonic = time.monotonic() - 12
+    prompt_event = {
+        "prompt_id": "B-0027:prompt:04",
+        "role": "update",
+        "scheduled_media_time_s": 40.0,
+        "actual_media_time_s": 40.1,
+        "actual_injection_time_s": 45.0,
+        "status": "accepted",
+        "error": None,
+    }
+    adapter._latest_prompt_event = prompt_event
+    adapter._injection_log = [prompt_event]
+
+    class ContentBlockedPage:
+        def __init__(self):
+            self.body_text = (
+                "Content Blocked\n"
+                "Your request was flagged for inappropriate content."
+            )
+            self.clicks = 0
+
+        async def evaluate(self, script):
+            if "document.body.innerText" in script:
+                return self.body_text
+            self.clicks += 1
+            self.body_text = ""
+            return True
+
+    page = ContentBlockedPage()
+
+    async def recorder_must_not_stop(page):
+        raise AssertionError("playback-time Content Blocked must not stop recording")
+
+    adapter._recorder_stop = recorder_must_not_stop
+
+    assert asyncio.run(adapter._handle_playback_content_blocked(page)) is True
+    assert page.clicks == 1
+    assert adapter._session_started is True
+    assert prompt_event["status"] == "failed"
+    assert prompt_event["error"].startswith("content_blocked:")
+    assert len(adapter._content_blocked_events) == 1
+    assert adapter._content_blocked_events[0]["prompt_id"] == "B-0027:prompt:04"
+    assert adapter._content_blocked_events[0]["dialog_closed"] is True
+
+    assert asyncio.run(adapter._handle_playback_content_blocked(page)) is False
+    assert len(adapter._content_blocked_events) == 1
+
+
+def test_pre_playback_content_blocked_remains_fatal():
+    adapter = OdysseyAdapter({"_connect_mode": True})
+    prompt_event = {
+        "prompt_id": "B-0027:prompt:00",
+        "role": "initial",
+        "status": "accepted",
+        "error": None,
+    }
+    dismissed = False
+
+    class ContentBlockedPage:
+        async def evaluate(self, script):
+            return (
+                "Content Blocked\n"
+                "Your request was flagged for inappropriate content."
+            )
+
+    async def dismiss(page):
+        nonlocal dismissed
+        dismissed = True
+
+    adapter._dismiss_content_blocked = dismiss
+
+    with pytest.raises(ContentBlockedError) as exc_info:
+        asyncio.run(
+            adapter._raise_if_content_blocked(
+                ContentBlockedPage(), prompt_event
+            )
+        )
+
+    assert dismissed is True
+    assert exc_info.value.prompt_event["status"] == "failed"
+    assert exc_info.value.prompt_event["error"].startswith("content_blocked:")

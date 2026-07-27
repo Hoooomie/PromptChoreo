@@ -107,3 +107,7 @@ def test_filter_work_items_by_duration():
     assert filter_work_items_by_duration(work_items, 120) == [
         ("A_A-120.yaml", {"duration_s": 120})
     ]
+    assert filter_work_items_by_duration(work_items, (30, 60)) == [
+        ("A_A-30.yaml", {"duration_s": 30}),
+        ("A_A-60.yaml", {"duration_s": 60}),
+    ]

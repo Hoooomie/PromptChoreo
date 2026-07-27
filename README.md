@@ -25,6 +25,7 @@ Happy Oyster 和 PixVerse 需要登录。**Odyssey 无需登录**，可跳过本
 
 ```bash
 python scripts/login_happyoyster.py   # 登录态 → ~/.workbuddy/browser_data
+python scripts/login_happyoyster_global.py  # 国际站 → 独立 profile
 python scripts/login_pixverse.py      # 登录态 → ~/.workbuddy/browser_data_pixverse
 ```
 
@@ -130,17 +131,21 @@ promptchoreo batch examples/manifest_pixverse.json --cdp http://127.0.0.1:9222
 ```bash
 # Pilot（默认）
 python scripts/bench_runner_happyoyster.py --phase pilot
+python scripts/bench_runner_happyoyster_global.py --phase pilot  # 国际站
 python scripts/bench_runner_odyssey.py --phase pilot
 python scripts/bench_runner.py --phase pilot          # PixVerse
 
 # Remain
 python scripts/bench_runner_happyoyster.py --phase remain
+python scripts/bench_runner_happyoyster_global.py --phase remain  # 国际站
 python scripts/bench_runner_odyssey.py --phase remain
 python scripts/bench_runner.py --phase remain
 
 # Remain 按时长筛选（--30 / --60 / --120 三选一，仍写入原 remain 目录）
 python scripts/bench_runner_happyoyster.py --phase remain --120
+python scripts/bench_runner_happyoyster_global.py --phase remain --120
 python scripts/bench_runner_odyssey.py --phase remain --120
+python scripts/bench_runner_odyssey.py --phase remain --30+60  # Odyssey 同时运行 30s 和 60s
 python scripts/bench_runner.py --phase remain --120
 
 # 单个 job（使用 YAML 文件名格式）
@@ -151,6 +156,7 @@ python scripts/bench_runner.py --phase remain --job EXAMPLE_JOB_SPLIT
 
 ```text
 outputs/happyoyster/<phase>/
+outputs/happyoyster_global/<phase>/
 outputs/odyssey/<phase>/
 outputs/pixverse_r1/<phase>/
 ```

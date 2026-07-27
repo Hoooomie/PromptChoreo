@@ -151,6 +151,14 @@ class HappyOysterAdapter(SiteAdapter):
         else:
             await self._inject_prompt(page, prompt, target_time)
 
+    def _stream_input_selector(self) -> str:
+        """Return the locale-specific streaming prompt input selector."""
+        selectors = ["textarea.story-textarea"]
+        configured = self.SELECTORS.get("stream_input")
+        if configured and configured not in selectors:
+            selectors.append(configured)
+        return ", ".join(selectors)
+
     async def _start_session(self, page: Page, prompt: str) -> None:
         """启动会话：输入初始 prompt，提交，等视频真正开始播放才录屏。
 
@@ -239,7 +247,7 @@ class HappyOysterAdapter(SiteAdapter):
         self._session_started = True
 
         # 4. 定位生成中指令输入框（仅用于注入后续指令）。宽松选择器 + 失败不致命。
-        stream_sel = "textarea.story-textarea, textarea[placeholder*='接下来']"
+        stream_sel = self._stream_input_selector()
         try:
             await page.locator(stream_sel).first.wait_for(
                 state="visible", timeout=60000
@@ -398,6 +406,16 @@ class HappyOysterAdapter(SiteAdapter):
                 if (text.includes("Oops") && text.includes("出了点问题")) {
                     return "Oops / 出了点问题";
                 }
+                if (text.includes("Content could not be generated")) {
+                    return "Content could not be generated";
+                }
+                if (text.includes("Generation failed")) {
+                    return "Generation failed";
+                }
+                if (text.includes("Unable to play")) return "Unable to play";
+                if (text.includes("Oops") && text.includes("Something went wrong")) {
+                    return "Oops / Something went wrong";
+                }
                 return null;
             }"""
         )
@@ -429,9 +447,7 @@ class HappyOysterAdapter(SiteAdapter):
 
     async def _do_inject(self, page: Page, prompt: str) -> None:
         """注入一条指令：填框 + 点发送（不做计时器等待，由调用方控制时机）。"""
-        stream_input = page.locator(
-            "textarea.story-textarea, textarea[placeholder*='接下来']"
-        )
+        stream_input = page.locator(self._stream_input_selector())
         await stream_input.wait_for(state="visible", timeout=10000)
         await stream_input.fill("")
         await stream_input.fill(prompt)

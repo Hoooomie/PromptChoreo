@@ -83,6 +83,9 @@ class OdysseyAdapter(SiteAdapter):
         self.first_video_chunk_time_s: float | None = None
         self.generation_complete_time_s: float | None = None
         self._injection_log: list[dict] = []
+        self._latest_prompt_event: dict | None = None
+        self._content_blocked_events: list[dict] = []
+        self._content_blocked_dialog_active = False
         self._retry_reason: str | None = None
         self._video_wait_retry_count = 0
         # Odyssey 在 Try Again 后的第一轮生成经常卡在 loading。
@@ -148,6 +151,9 @@ class OdysseyAdapter(SiteAdapter):
                 self.stop_monotonic = None
                 self.crop_region = None
                 self._injection_log = []
+                self._latest_prompt_event = None
+                self._content_blocked_events = []
+                self._content_blocked_dialog_active = False
                 self.initial_prompt_time_s = None
                 self.first_video_chunk_time_s = None
                 self.generation_complete_time_s = None
@@ -307,16 +313,13 @@ class OdysseyAdapter(SiteAdapter):
         self, page: Page, prompt_event: dict | None = None
     ) -> None:
         """Raise a structured error when Odyssey shows its moderation dialog."""
-        try:
-            body_text = await page.evaluate("() => document.body.innerText || ''")
-        except Exception:
+        if not await self._content_blocked_is_visible(page):
             return
 
-        if not re.search(
-            r"content\s+blocked|flagged\s+for\s+inappropriate\s+content",
-            body_text,
-            re.I,
-        ):
+        if self.recording_start_monotonic is not None:
+            await self._handle_playback_content_blocked(
+                page, prompt_event=prompt_event, detected=True
+            )
             return
 
         error = (
@@ -336,16 +339,97 @@ class OdysseyAdapter(SiteAdapter):
             prompt_events=list(self._injection_log),
         )
 
-    async def _dismiss_content_blocked(self, page: Page) -> None:
-        """Stop recording, close the moderation dialog, and reset the page."""
-        if self._session_started or self.recording_start_monotonic is not None:
-            print("[ContentBlocked] 先停止当前录屏", file=sys.stderr)
-            await self._recorder_stop(page)
+    async def _content_blocked_is_visible(self, page: Page) -> bool:
+        """Return whether Odyssey's Content Blocked dialog is visible."""
+        try:
+            body_text = await page.evaluate("() => document.body.innerText || ''")
+        except Exception:
+            return False
 
+        return bool(
+            re.search(
+                r"content\s+blocked|flagged\s+for\s+inappropriate\s+content",
+                body_text,
+                re.I,
+            )
+        )
+
+    async def _handle_playback_content_blocked(
+        self,
+        page: Page,
+        prompt_event: dict | None = None,
+        *,
+        detected: bool = False,
+    ) -> bool:
+        """Close a playback-time moderation dialog without stopping recording."""
+        if not detected and not await self._content_blocked_is_visible(page):
+            if self._content_blocked_dialog_active:
+                self._content_blocked_events[-1]["dialog_closed"] = True
+            self._content_blocked_dialog_active = False
+            return False
+
+        error = (
+            "content_blocked: Your request was flagged for inappropriate content."
+        )
+        associated_event = prompt_event or self._latest_prompt_event
+        if not self._content_blocked_dialog_active:
+            if associated_event is not None:
+                associated_event["status"] = "failed"
+                associated_event["error"] = error
+
+            media_time_s = (
+                round(time.monotonic() - self.recording_start_monotonic, 1)
+                if self.recording_start_monotonic is not None
+                else None
+            )
+            incident = {
+                "media_time_s": media_time_s,
+                "job_time_s": round(
+                    time.monotonic() - self._job_start_monotonic, 1
+                ),
+                "prompt_id": (
+                    associated_event.get("prompt_id", "")
+                    if associated_event is not None
+                    else ""
+                ),
+                "role": (
+                    associated_event.get("role", "")
+                    if associated_event is not None
+                    else ""
+                ),
+                "dialog_closed": False,
+            }
+            self._content_blocked_events.append(incident)
+            self._content_blocked_dialog_active = True
+            print(
+                "[ContentBlocked] 播放过程中检测到拦截弹窗；"
+                "保持录屏并自动点击右上角 X",
+                file=sys.stderr,
+            )
+
+        clicked = await self._close_content_blocked_dialog(page)
+        if clicked:
+            self._content_blocked_events[-1]["dialog_closed"] = True
+        return True
+
+    async def _sleep_while_monitoring_content_blocked(
+        self, page: Page, duration_s: float, poll_interval: float = 0.25
+    ) -> None:
+        """Sleep against the recording clock while dismissing moderation dialogs."""
+        deadline = time.monotonic() + max(float(duration_s), 0.0)
+        while True:
+            await self._handle_playback_content_blocked(page)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            await asyncio.sleep(min(poll_interval, remaining))
+
+    async def _close_content_blocked_dialog(self, page: Page) -> bool:
+        """Click only the moderation dialog X, leaving playback and recording active."""
         clicked = False
         try:
-            # 从精确标题向上寻找最近的弹窗容器，再点其中右上角的按钮。
-            # Odyssey 当前弹窗只有一个 X 按钮；按位置选择可避免误点页面按钮。
+            # Locate the closest dialog container from its exact title, then
+            # choose the visible button nearest the container's top-right corner.
             clicked = bool(
                 await page.evaluate(
                     """() => {
@@ -367,8 +451,7 @@ class OdysseyAdapter(SiteAdapter):
                                 ...container.querySelectorAll(
                                     'button, [role="button"]'
                                 )
-                            ]
-                                .filter(visible);
+                            ].filter(visible);
                             if (buttons.length) {
                                 const cr = container.getBoundingClientRect();
                                 buttons.sort((a, b) => {
@@ -393,13 +476,21 @@ class OdysseyAdapter(SiteAdapter):
             print(f"[ContentBlocked] 点击弹窗 X 失败: {exc}", file=sys.stderr)
 
         if clicked:
-            print("[ContentBlocked] 已点击弹窗右上角 X", file=sys.stderr)
+            print("[ContentBlocked] 已点击弹窗右上角 X，继续播放", file=sys.stderr)
         else:
             print(
-                "[ContentBlocked] 未定位到弹窗 X，继续尝试页面复位按钮",
+                "[ContentBlocked] 暂未定位到弹窗 X，将在下一轮继续尝试",
                 file=sys.stderr,
             )
+        return clicked
 
+    async def _dismiss_content_blocked(self, page: Page) -> None:
+        """Stop recording, close a fatal pre-playback dialog, and reset."""
+        if self._session_started or self.recording_start_monotonic is not None:
+            print("[ContentBlocked] 先停止当前录屏", file=sys.stderr)
+            await self._recorder_stop(page)
+
+        await self._close_content_blocked_dialog(page)
         await asyncio.sleep(0.5)
         await self._reset_to_input(page)
 
@@ -428,6 +519,7 @@ class OdysseyAdapter(SiteAdapter):
             "status": "accepted",
             "error": None,
         }
+        self._latest_prompt_event = initial_event
         await self._raise_if_content_blocked(page, initial_event)
 
         print("[DEBUG] 等待模拟就绪...", file=sys.stderr)
@@ -458,7 +550,7 @@ class OdysseyAdapter(SiteAdapter):
             file=sys.stderr,
         )
 
-        await asyncio.sleep(5)
+        await self._sleep_while_monitoring_content_blocked(page, 5)
 
         stream_ta = await self._find_stream_textarea(page, timeout=120)
         if stream_ta is None:
@@ -472,10 +564,11 @@ class OdysseyAdapter(SiteAdapter):
         # 测出真正的视频/画布内容包围盒，作为裁剪区（去掉周边 UI）
         # canvas 可能晚几秒才撑满尺寸，重试几次
         for _ in range(10):
+            await self._handle_playback_content_blocked(page)
             await self._detect_content_region(page)
             if self.crop_region:
                 break
-            await asyncio.sleep(1)
+            await self._sleep_while_monitoring_content_blocked(page, 1)
 
         # 记录 initial prompt（spec 格式）
         self._injection_log = []
@@ -603,6 +696,7 @@ class OdysseyAdapter(SiteAdapter):
     async def _find_stream_textarea(self, page: Page, timeout: float = 60) -> Any:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            await self._handle_playback_content_blocked(page)
             for sel in ["textarea", "textarea[enterkeyhint]", self.SELECTORS["stream_textarea"]]:
                 try:
                     loc = page.locator(sel).first
@@ -610,7 +704,7 @@ class OdysseyAdapter(SiteAdapter):
                         return loc
                 except Exception:
                     pass
-            await asyncio.sleep(3)
+            await self._sleep_while_monitoring_content_blocked(page, 3)
         return None
 
     async def _inject_command(
@@ -621,6 +715,8 @@ class OdysseyAdapter(SiteAdapter):
     ) -> None:
         # 注入前检查会话是否已耗尽——若弹出「Your Session Ended」，立即中断
         await self._check_session_ended(page)
+        await self._handle_playback_content_blocked(page)
+        self._latest_prompt_event = prompt_event
 
         try:
             click_area = page.locator(self.SELECTORS["video_overlay"]).first
@@ -652,7 +748,9 @@ class OdysseyAdapter(SiteAdapter):
         await self._raise_if_content_blocked(page, prompt_event)
 
         if self._post_inject_delay > 0:
-            await asyncio.sleep(self._post_inject_delay)
+            await self._sleep_while_monitoring_content_blocked(
+                page, self._post_inject_delay
+            )
 
     async def _run_injection_loop(
         self, page: Page, events: list[dict], end_delay: float
@@ -678,7 +776,10 @@ class OdysseyAdapter(SiteAdapter):
             remaining = target_duration - (time.monotonic() - clock_start)
             if remaining > 0:
                 print(f"[DEBUG] 等待 {remaining:.0f}s 至录制时长 {target_duration:.0f}s", file=sys.stderr)
-                await asyncio.sleep(remaining)
+                await self._sleep_while_monitoring_content_blocked(
+                    page, remaining, poll_interval
+                )
+            await self._handle_playback_content_blocked(page)
             self.generation_complete_time_s = round(
                 time.monotonic() - self._job_start_monotonic, 1
             )
@@ -696,6 +797,7 @@ class OdysseyAdapter(SiteAdapter):
         last_inject_at_target: float | None = None
         last_activity = time.monotonic()
         while idx < len(targets):
+            await self._handle_playback_content_blocked(page)
             elapsed = time.monotonic() - clock_start
             target_time, prompt, prompt_id, role = targets[idx]
             # 不提前触发：prompt 时间严格相对于外部录屏开始时刻。
@@ -750,8 +852,11 @@ class OdysseyAdapter(SiteAdapter):
                 f"[DEBUG] 注入完成，等待 {remaining:.0f}s 至录制时长 {target_duration:.0f}s 后停录屏",
                 file=sys.stderr,
             )
-            await asyncio.sleep(remaining)
+            await self._sleep_while_monitoring_content_blocked(
+                page, remaining, poll_interval
+            )
 
+        await self._handle_playback_content_blocked(page)
         self.generation_complete_time_s = round(
             time.monotonic() - self._job_start_monotonic, 1
         )
