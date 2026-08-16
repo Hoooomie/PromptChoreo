@@ -162,15 +162,15 @@ class HappyOysterAdapter(SiteAdapter):
     async def _start_session(self, page: Page, prompt: str) -> None:
         """启动会话：输入初始 prompt，提交，等视频真正开始播放才录屏。
 
-        顺序要点（关键）：先确认「视频真正开始播放」——以页面顶部
-        "REC mm:ss" 计时器从 00:00 开始**递增**为唯一信号——再启动外部录屏
-        并记为录屏起点。这一步**不依赖**生成中指令输入框。
+        顺序要点（关键）：先确认页面顶部可见的 "REC mm:ss" 元素已经
+        实际渲染到视口，并观察到数值真实递增，再启动外部录屏并记为录屏
+        起点。这一步不扫描整个 body 文本，也**不依赖**生成中指令输入框。
 
         为什么不用 Pause 按钮文字：提交后有一段加载期（加载到 100%），期间
         Pause 按钮早已显示"暂停"，但画面尚未出帧。若以它为信号，录屏会把
         这一分多钟的加载死屏也录进去（用户明确要求：视频开始才录）。
 
-        若计时器在超时内未递增：dump 计时器/页面文本/textarea 诊断并明确报错，
+        若可见 REC 元素在超时内仍未递增：dump 页面/textarea 诊断并明确报错，
         绝不"假定已开始"盲录加载死屏。
 
         指令输入框只在「需要注入后续指令」时才必须存在，找不到时降级为
@@ -201,42 +201,52 @@ class HappyOysterAdapter(SiteAdapter):
             "error": None,
         }]
 
-        # 3. 等「视频真正开始播放」：以页面计时器开始递增为唯一可靠信号。
+        # 3. 等可见的页面 REC 计时器真正开始递增。
         #    提交后 Happy Oyster 有一段加载期（加载到 100%），期间 Pause 按钮可能
         #    已显示"暂停"、但画面尚未出帧——此时录屏会录到一分多钟的加载死屏。
-        #    真正的播放信号是顶部 "REC mm:ss" 计时器从 00:00 开始跳动，因此必须
-        #    等到计时器「递增」才启动录屏（用户明确要求：视频开始才录，不录加载屏）。
+        #    这里不扫描 document.body.innerText，因为 DOM 文本可能早于屏幕渲染。
+        #    只有位于视口内、具有实际尺寸且 CSS 可见的 REC 元素才算出现；
+        #    元素出现后仍须观察到数值递增，才建立录屏零点。
         playback_timeout = self._max_load_wait  # 秒（加载慢，默认 600，可配置）
         playback_ok = await self._wait_for_playback(page, playback_timeout)
         if not playback_ok:
-            # 没等到计时器递增：绝不"假定已开始"盲录加载死屏，dump 诊断让用户精确修信号。
+            # 没等到可见 REC 计时器递增：不盲录，dump 诊断让用户精确修信号。
             timer = await self._get_page_timer(page)
             pct = await self._get_loading_pct(page)
             sample = await page.evaluate("() => document.body.innerText.slice(0, 400)")
             print(
-                f"[ERROR] 未检测到视频开始播放（{playback_timeout:.0f}s 内计时器未递增，"
+                f"[ERROR] 未检测到视频播放（{playback_timeout:.0f}s 内可见 REC 计时器未递增，"
                 f"当前计时器={timer!r}，加载进度={pct!r}）。未启动录屏，避免录到加载死屏。",
                 file=sys.stderr,
             )
             print(f"[DEBUG-TIMER] page_text_sample={sample!r}", file=sys.stderr)
             await self._dump_textareas(page)
             raise RuntimeError(
-                "未检测到 Happy Oyster 视频开始播放（计时器未在 "
-                f"{playback_timeout:.0f}s 内递增）。请检查页面计时器格式或 _get_page_timer "
+                "未检测到 Happy Oyster 可见 REC 计时器递增（未在 "
+                f"{playback_timeout:.0f}s 内变化）。请检查页面计时器元素或 _get_page_timer "
                 "选择器；详细诊断见上方 [DEBUG-TIMER] / [DEBUG-TA]。"
             )
 
-        # 视频已开始播放（计时器递增）→ 此刻才启动外部录屏。
-        # 这帧同时是录屏起点（不录加载死屏）。
+        # 可见 REC 计时器已递增 → 此刻启动外部录屏。
         if self._ext_recorder:
             ok = self._ext_recorder.start()
             print(f"[Recorder] 开始录制热键结果: {'成功' if ok else '失败（见上方 traceback）'}", file=sys.stderr)
         else:
             print("[Recorder] 未配置外部录屏，跳过开始", file=sys.stderr)
 
-        # 外部录屏和 benchmark 媒体时间轴使用同一个墙钟起点。
+        # 外部录屏和 benchmark 媒体时间轴使用同一个 monotonic 墙钟起点。
+        # 后续注入只使用这个起点；页面计时器不再承担调度职责。
         self.recording_start_monotonic = time.monotonic()
         self.generation_start_monotonic = self.recording_start_monotonic
+        try:
+            page_timer_at_recording_start = await self._get_page_timer(page)
+        except Exception:
+            page_timer_at_recording_start = None
+        print(
+            "[TIMING] 录屏时钟 t=0.0s；"
+            f"页面计时器={page_timer_at_recording_start!r}s",
+            file=sys.stderr,
+        )
         self.first_video_chunk_time_s = round(
             self.recording_start_monotonic - self._job_start_monotonic, 1
         )
@@ -248,11 +258,10 @@ class HappyOysterAdapter(SiteAdapter):
 
         # 4. 定位生成中指令输入框（仅用于注入后续指令）。宽松选择器 + 失败不致命。
         stream_sel = self._stream_input_selector()
-        try:
-            await page.locator(stream_sel).first.wait_for(
-                state="visible", timeout=60000
-            )
-        except Exception:
+        stream_input = await self._wait_for_stream_input_or_failure(
+            page, timeout_s=60.0
+        )
+        if stream_input is None:
             print(
                 "[WARN] 未找到生成中指令输入框（可能网站改版 / 选择器变化），"
                 "后续注入指令将跳过；生成与录屏不受影响。",
@@ -260,7 +269,7 @@ class HappyOysterAdapter(SiteAdapter):
             )
             await self._dump_textareas(page)
 
-        # 5. 启动注入循环：按页面计时器在精准时刻注入后续 prompt
+        # 5. 启动注入循环：严格按录屏开始后的墙钟偏移注入后续 prompt。
         events = self.config.get("_inject_events", [])
         print(
             f"[DEBUG] config has _inject_events={'YES' if events else 'NO'} "
@@ -326,39 +335,63 @@ class HappyOysterAdapter(SiteAdapter):
         print("[DEBUG] 初始提交 via JS click (container + rounded-full)", file=sys.stderr)
 
     async def _get_page_timer(self, page: Page) -> float | None:
-        """读取页面上的生成计时器（单位：秒），返回 None 如果读不到。
+        """读取屏幕视口内实际可见的 REC 计时器。
 
-        Happy Oyster 生成中页面顶部显示 "REC mm:ss / total" 格式的计时。
+        不使用整个 body 的文本，也不回退匹配任意 ``mm:ss``，避免读取到
+        尚未渲染、视口外或与 REC 无关的时间文本。
         """
         return await page.evaluate(
             """() => {
-                const text = document.body.innerText;
-                const m = text.match(/REC\\s*(\\d+):(\\d+)/);
-                if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-                // 回退：找任意 mm:ss 格式（排除可能的总时长）
-                const all = text.match(/(\\d+):(\\d{2})/g);
-                if (all) {
-                    for (const t of all) {
-                        const parts = t.split(':');
-                        const secs = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-                        if (secs > 0) return secs;
+                const normalize = value => (value || '')
+                    .replace(/\\s+/g, ' ').trim();
+                const isVisible = el => {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return false;
+                    if (rect.bottom <= 0 || rect.right <= 0
+                        || rect.top >= window.innerHeight
+                        || rect.left >= window.innerWidth) return false;
+                    for (let node = el; node && node !== document; node = node.parentElement) {
+                        const style = getComputedStyle(node);
+                        if (style.display === 'none'
+                            || style.visibility === 'hidden'
+                            || Number.parseFloat(style.opacity || '1') <= 0) {
+                            return false;
+                        }
                     }
+                    return true;
+                };
+                const matches = Array.from(document.querySelectorAll('body *'))
+                    .filter(isVisible)
+                    .map(el => ({
+                        el,
+                        match: normalize(el.innerText || el.textContent)
+                            .match(/(?:^|\\s)REC\\s*(\\d+):(\\d{2})(?:\\s|$|\\/)/i),
+                    }))
+                    .filter(item => item.match)
+                    .sort((left, right) =>
+                        left.el.querySelectorAll('*').length
+                        - right.el.querySelectorAll('*').length
+                    );
+                if (matches.length) {
+                    const m = matches[0].match;
+                    return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
                 }
                 return null;
             }"""
         )
 
     async def _wait_for_playback(self, page: Page, timeout: float) -> bool:
-        """等待视频真正开始播放：以页面计时器递增为信号。
+        """等待屏幕内可见的 REC 计时器数值真实递增。
 
-        返回 True 表示检测到计时器递增（视频在播）；超时返回 False。
+        第一次读数只建立基线；后续读数增加时返回 True。
+        超时仍未递增则返回 False。
 
         - 加载期页面停留在 /explore 并显示进度百分比（如「89%」），此时无计时器。
         - **关键：等待窗口只用 timeout（=max_load_wait）这一个边界。** 加载百分比
           可能长时间卡在某值（如 89%）但最终会动——用户已多次确认「加载慢、最终能
           生成、只是花时间长」。因此百分比卡住**绝不**作为失败信号，也**不**刷新
           deadline。我们只老实等满 timeout，期间百分比变化仅打印日志。
-        - 递增检测还能过滤加载期静态显示的「总时长 mm:ss」，避免误判为播放。
+        - 只接受可见的 REC 元素，不接受其他静态 ``mm:ss`` 文本。
         """
         last: float | None = None
         last_pct: int | None = None
@@ -372,10 +405,14 @@ class HappyOysterAdapter(SiteAdapter):
             if t is not None:
                 if last is None:
                     last = t
-                    print(f"[DEBUG] 计时器出现: {t}s（等待递增以确认播放）", file=sys.stderr)
+                    print(
+                        f"[DEBUG] 可见 REC 计时器已渲染: {t}s，等待递增",
+                        file=sys.stderr,
+                    )
                 elif t > last:
                     print(
-                        f"[DEBUG] 计时器递增 {last}s → {t}s，确认视频开始播放",
+                        f"[DEBUG] 可见 REC 计时器递增 {last}s → {t}s，"
+                        "立即启动录屏",
                         file=sys.stderr,
                     )
                     return True
@@ -390,7 +427,7 @@ class HappyOysterAdapter(SiteAdapter):
                 if pct is not None and pct != last_pct:
                     print(f"[DEBUG] 加载中... {pct}%（继续等待生成开始）", file=sys.stderr)
                     last_pct = pct
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
         return False
 
     async def _raise_if_generation_failed(self, page: Page) -> None:
@@ -409,6 +446,9 @@ class HappyOysterAdapter(SiteAdapter):
                 if (text.includes("Content could not be generated")) {
                     return "Content could not be generated";
                 }
+                if (text.includes("This scene can't be played right now")) {
+                    return "This scene can't be played right now";
+                }
                 if (text.includes("Generation failed")) {
                     return "Generation failed";
                 }
@@ -421,12 +461,40 @@ class HappyOysterAdapter(SiteAdapter):
         )
         if not message:
             return
-        self.first_video_chunk_time_s = None
+        playback_unavailable = (
+            message == "This scene can't be played right now"
+        )
+        nonretryable_oops = message in (
+            "Oops / Something went wrong",
+            "Oops / 出了点问题",
+        )
+        if (
+            playback_unavailable or nonretryable_oops
+        ) and self.recording_start_monotonic is not None:
+            print(
+                f"[ERROR] 检测到不可重试的网站错误: {message}；"
+                "立即停止录屏",
+                file=sys.stderr,
+            )
+            await self._recorder_stop(page)
+        if not playback_unavailable:
+            self.first_video_chunk_time_s = None
         self.generation_complete_time_s = None
         print(
             f"[ERROR] Happy Oyster 站点生成失败: {message}",
             file=sys.stderr,
         )
+        if playback_unavailable:
+            raise RuntimeError(
+                "site_playback_unavailable: HappyOyster displayed "
+                "\"This scene can't be played right now\"; "
+                "only the first-frame preview was available"
+            )
+        if nonretryable_oops:
+            raise RuntimeError(
+                "site_generation_nonretryable: HappyOyster displayed "
+                f"{message!r} and produced no valid video"
+            )
         raise RuntimeError(
             "site_generation_failed: HappyOyster displayed "
             f"{message!r} and produced no valid video"
@@ -445,31 +513,78 @@ class HappyOysterAdapter(SiteAdapter):
             }"""
         )
 
-    async def _do_inject(self, page: Page, prompt: str) -> None:
-        """注入一条指令：填框 + 点发送（不做计时器等待，由调用方控制时机）。"""
-        stream_input = page.locator(self._stream_input_selector())
-        await stream_input.wait_for(state="visible", timeout=10000)
+    async def _wait_for_stream_input_or_failure(
+        self, page: Page, *, timeout_s: float
+    ):
+        """Poll the stream input while prioritizing visible site failures."""
+        stream_input = page.locator(self._stream_input_selector()).first
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            await self._raise_if_generation_failed(page)
+            try:
+                if await stream_input.is_visible(timeout=250):
+                    return stream_input
+            except Exception:
+                pass
+            await asyncio.sleep(0.2)
+        await self._raise_if_generation_failed(page)
+        return None
+
+    async def _prepare_inject(self, page: Page, prompt: str) -> None:
+        """提前填好指令，但不点击发送。"""
+        stream_input = await self._wait_for_stream_input_or_failure(
+            page, timeout_s=10.0
+        )
+        if stream_input is None:
+            raise RuntimeError(
+                "Happy Oyster 生成中指令输入框 10 秒内不可见"
+            )
         await stream_input.fill("")
         await stream_input.fill(prompt)
         await asyncio.sleep(0.3)
 
+    async def _send_prepared_inject(self, page: Page) -> float:
+        """发送已填好的指令，返回发送完成时的 monotonic 时间。"""
         await self._click_send(
             page,
             [self.SELECTORS["stream_send"], self.SELECTORS["initial_send"]],
             label="指令注入",
         )
+        accepted_at = time.monotonic()
         await asyncio.sleep(self._post_inject_delay)
+        return accepted_at
+
+    async def _do_inject(self, page: Page, prompt: str) -> None:
+        """注入一条指令：填框 + 点发送。"""
+        await self._prepare_inject(page, prompt)
+        await self._send_prepared_inject(page)
+
+    async def _wait_until_recording_offset(
+        self, page: Page, target_offset_s: float
+    ) -> None:
+        """Wait until an offset on the external-recording clock."""
+        if self.recording_start_monotonic is None:
+            raise RuntimeError("Happy Oyster 录屏计时起点尚未建立")
+        deadline = self.recording_start_monotonic + target_offset_s
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            await self._raise_if_generation_failed(page)
+            await asyncio.sleep(min(0.1, remaining))
 
     async def _run_injection_loop(
         self, page: Page, events: list[dict], end_delay: float
     ) -> None:
-        """按页面计时器在精准时刻注入后续 prompt。
+        """按录屏开始后的 monotonic 偏移精准注入后续 prompt。
 
-        每 250ms 轮询页面计时器，当到达下一个目标时刻的 ±1s 内时注入。
-        所有注入完成后等待通知 + t 秒 + Pause + 停留验证。
+        页面计时器只用于日志诊断，不参与是否注入的判断。为了让“点击发送”
+        尽量落在目标时刻，输入文本会在目标前少量预填，发送按钮则等到录屏
+        墙钟到达目标时刻再点击。
         """
-        tolerance = 0.8
-        poll_interval = 0.25
+        prepare_lead_s = max(
+            float(self.config.get("injection_prepare_lead_s", 0.75)), 0.0
+        )
 
         targets = sorted(
             [
@@ -488,49 +603,42 @@ class HappyOysterAdapter(SiteAdapter):
         print(
             f"[DEBUG] 注入循环启动，共 {len(targets)} 个目标: "
             f"{[f'{t:.0f}s' for t, _, _, _ in targets]}"
-            f"（轮询间隔 {poll_interval*1000:.0f}ms，容差 ±{tolerance:.0f}s）",
+            "（基准=录屏开始 monotonic 时钟）",
             file=sys.stderr,
         )
 
-        idx = 0
-        last_inject_at_target: float | None = None
-        while idx < len(targets):
-            await self._raise_if_generation_failed(page)
-            current = await self._get_page_timer(page)
-            if current is None:
-                await asyncio.sleep(poll_interval)
-                continue
-
-            target_time, prompt, prompt_id, role = targets[idx]
-            if current >= target_time - tolerance:
-                if last_inject_at_target == target_time:
-                    await asyncio.sleep(poll_interval)
-                    continue
-
-                drift = current - target_time
-                print(
-                    f"[DEBUG] 注入 t={target_time:.0f}s  "
-                    f"(页面计时器 {current:.1f}s，偏差 {drift:+.1f}s)",
-                    file=sys.stderr,
-                )
-                await self._do_inject(page, prompt)
-                self._injection_log.append({
-                    "prompt_id": prompt_id,
-                    "role": role,
-                    "scheduled_media_time_s": target_time,
-                    "actual_media_time_s": round(float(current), 1),
-                    "actual_injection_time_s": round(
-                        time.monotonic() - self._job_start_monotonic, 1
-                    ),
-                    "status": "accepted",
-                    "error": None,
-                })
-                last_inject_at_target = target_time
-                idx += 1
-                await asyncio.sleep(0.3)
-                continue
-
-            await asyncio.sleep(poll_interval)
+        for target_time, prompt, prompt_id, role in targets:
+            await self._wait_until_recording_offset(
+                page, max(target_time - prepare_lead_s, 0.0)
+            )
+            await self._prepare_inject(page, prompt)
+            await self._wait_until_recording_offset(page, target_time)
+            try:
+                page_timer = await self._get_page_timer(page)
+            except Exception:
+                page_timer = None
+            accepted_at = await self._send_prepared_inject(page)
+            actual_media_time = (
+                accepted_at - self.recording_start_monotonic
+            )
+            drift = actual_media_time - target_time
+            print(
+                f"[TIMING] 注入计划={target_time:.1f}s，"
+                f"录屏偏移={actual_media_time:.3f}s，偏差={drift:+.3f}s，"
+                f"页面计时器={page_timer!r}s",
+                file=sys.stderr,
+            )
+            self._injection_log.append({
+                "prompt_id": prompt_id,
+                "role": role,
+                "scheduled_media_time_s": target_time,
+                "actual_media_time_s": round(actual_media_time, 1),
+                "actual_injection_time_s": round(
+                    accepted_at - self._job_start_monotonic, 1
+                ),
+                "status": "accepted",
+                "error": None,
+            })
 
         # ── 收尾：等待 end_delay 后同时结束生成和录屏（背靠背，不留空隙） ──
         # 尾巴优先 end_delay（用户清单里设定的"最后一条注入后继续录制的秒数"），

@@ -153,9 +153,9 @@ class FakePageTimer(FakePage):
         return ""
 
 
-def test_wait_for_playback_true_on_increment():
+def test_wait_for_playback_returns_when_visible_rec_timer_increments():
     a = _make_adapter()
-    page = FakePageTimer([0, 1])  # 计时器 0→1 递增 = 视频开始播放
+    page = FakePageTimer([None, 0, 0, 1])
 
     async def _instant(*a, **k):
         return
@@ -164,16 +164,81 @@ def test_wait_for_playback_true_on_increment():
         assert asyncio.run(a._wait_for_playback(page, 5)) is True
 
 
-def test_wait_for_playback_false_on_static_timer():
+def test_wait_for_playback_rejects_visible_static_zero_timer():
     a = _make_adapter()
-    page = FakePageTimer([60, 60, 60])  # 加载期静态总时长，不递增
+    page = FakePageTimer([0, 0, 0])
 
     async def _instant(*a, **k):
         return
 
     with patch("asyncio.sleep", _instant):
-        # 静态值不会递增 → 超时返回 False（绝不盲判为播放而开录）
-        assert asyncio.run(a._wait_for_playback(page, 0.5)) is False
+        assert asyncio.run(a._wait_for_playback(page, 0.2)) is False
+
+
+def test_wait_for_playback_rejects_visible_static_nonzero_timer():
+    a = _make_adapter()
+    page = FakePageTimer([60, 60, 60])
+
+    async def _instant(*a, **k):
+        return
+
+    with patch("asyncio.sleep", _instant):
+        assert asyncio.run(a._wait_for_playback(page, 0.2)) is False
+
+
+def test_injection_schedule_uses_recording_clock_not_page_timer():
+    a = _make_adapter()
+    a.recording_start_monotonic = 100.0
+    a._job_start_monotonic = 90.0
+    a._post_inject_delay = 0
+    clock = {"now": 100.0}
+    sent_at = []
+
+    async def fake_sleep(seconds):
+        clock["now"] += seconds
+
+    async def no_generation_error(page):
+        return None
+
+    async def prepare(page, prompt):
+        assert prompt == "turn left"
+        clock["now"] += 0.2
+
+    async def send(page):
+        sent_at.append(clock["now"])
+        return clock["now"]
+
+    async def no_notification(page, prompt):
+        return None
+
+    async def no_finish(page, duration):
+        assert duration == 31.0
+
+    async def page_timer_is_unavailable(page):
+        return None
+
+    a._raise_if_generation_failed = no_generation_error
+    a._prepare_inject = prepare
+    a._send_prepared_inject = send
+    a._wait_for_notification = no_notification
+    a._finish_recording = no_finish
+    a._get_page_timer = page_timer_is_unavailable
+
+    event = {
+        "time": 30,
+        "prompt": "turn left",
+        "prompt_id": "i1",
+        "role": "update",
+    }
+    with patch(
+        "promptchoreo.adapters.happy_oyster.time.monotonic",
+        side_effect=lambda: clock["now"],
+    ), patch("asyncio.sleep", fake_sleep):
+        asyncio.run(a._run_injection_loop(FakePage(), [event], 1))
+
+    assert sent_at == [130.0]
+    assert a._injection_log[-1]["scheduled_media_time_s"] == 30.0
+    assert a._injection_log[-1]["actual_media_time_s"] == 30.0
 
 
 class FakeGenerationErrorPage(FakePage):
@@ -181,8 +246,44 @@ class FakeGenerationErrorPage(FakePage):
         return "内容无法生成，请换个描述试试"
 
 
+class FakePlaybackUnavailablePage(FakePage):
+    async def evaluate(self, *a, **k):
+        return "This scene can't be played right now"
+
+
+class FakeOopsPage(FakePage):
+    async def evaluate(self, *a, **k):
+        return "Oops / Something went wrong"
+
+
 def test_generation_error_page_raises_stable_site_failure():
     a = _make_adapter()
     page = FakeGenerationErrorPage()
     with pytest.raises(RuntimeError, match="site_generation_failed"):
         asyncio.run(a._raise_if_generation_failed(page))
+
+
+def test_playback_unavailable_stops_recorder_and_raises_skip_failure():
+    a = _make_adapter()
+    a._ext_recorder = FakeRecorder()
+    a.recording_start_monotonic = 100.0
+    page = FakePlaybackUnavailablePage()
+
+    with pytest.raises(RuntimeError, match="site_playback_unavailable"):
+        asyncio.run(a._raise_if_generation_failed(page))
+
+    assert a._ext_recorder.stop_calls == 1
+    assert a._recorder_stopped is True
+
+
+def test_oops_stops_recorder_and_raises_nonretryable_failure():
+    a = _make_adapter()
+    a._ext_recorder = FakeRecorder()
+    a.recording_start_monotonic = 100.0
+    page = FakeOopsPage()
+
+    with pytest.raises(RuntimeError, match="site_generation_nonretryable"):
+        asyncio.run(a._raise_if_generation_failed(page))
+
+    assert a._ext_recorder.stop_calls == 1
+    assert a._recorder_stopped is True

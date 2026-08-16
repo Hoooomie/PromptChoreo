@@ -1,0 +1,12 @@
+{
+  "accounts": [
+    {
+      "email": "first-account@example.com",
+      "password": "replace-with-password"
+    },
+    {
+      "email": "second-account@example.com",
+      "password": "replace-with-password"
+    }
+  ]
+}

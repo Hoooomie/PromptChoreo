@@ -1,0 +1,962 @@
+[
+  {
+    "scenario_id": "P-0001",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic scene in a warm, lived-in home kitchen with a broad wooden counter, a stovetop, neatly arranged ingredients, and soft daylight entering through a nearby window. Two home cooks prepare a meal together: an adult cook wearing a linen apron continuously chops and sorts fresh vegetables at the counter while a second adult cook in casual home clothes stirs and seasons a simmering pot, with both exchanging ingredients, checking each other's work, and maintaining casual conversation through clearly separated, alternating lines that do not overlap as their parallel tasks continue."
+  },
+  {
+    "scenario_id": "P-0002",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic warm rustic cottage bakery, soft window light falls across a flour-dusted wooden workbench, a glowing brick oven, racks of cooling bread, and bowls of dough. A sturdy anthropomorphic brown bear baker in a flour-marked linen apron continuously kneads and portions dough at the workbench while a batch of loaves steadily bakes unattended in the brick oven and previously baked loaves cool on the racks, sustaining all three baking processes without requiring the bear to handle them at once. The sole prominent sound is the steady rhythmic thump and scrape of dough against the wooden workbench."
+  },
+  {
+    "scenario_id": "P-0003",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic spacious home kitchen features a long stone counter with an espresso machine, coffee beans, and cups, while warm daylight filters through a nearby window. Four individually recognizable adult housemates—an older silver-haired man in a navy cardigan, a young woman with a dark bob in a green apron, a tall curly-haired man in a gray T-shirt, and a middle-aged woman with braided hair in a cream sweater—continuously prepare fresh coffee together at the counter, measuring beans, operating the espresso machine, and filling cups as one shared activity. They take turns chatting clearly, with intermittent coffee grinding and espresso-machine sounds occurring between their remarks."
+  },
+  {
+    "scenario_id": "P-0004",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A compact humanoid domestic robot with brushed-metal panels and articulated hands sits at a wooden table in a photorealistic, warmly lit apartment dining nook, surrounded by a place setting and serving dishes in soft evening light. Remaining at the table, the robot steadily uses utensils to select, portion, and arrange food on its plate as gentle music plays continuously, overlapped by the sounds of utensils and dishes."
+  },
+  {
+    "scenario_id": "P-0005",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A richly textured hand-painted illustration shows a warmly lit communal kitchen with a deep sink, long countertop, open dish racks, and stacks of used plates and bowls. At the washing counter, four individually recognizable adults—an older woman in a green rolled-sleeve cardigan, a young man wearing a rust-colored apron, a middle-aged woman with a blue headscarf, and a tall man in a cream shirt with pushed-up sleeves—continuously work together to wash the accumulated dishes, repeatedly scrubbing, rinsing, and placing cleaned pieces onto the racks as they work through the stack. Water splashing against clinking ceramic creates a steady close-up rhythm."
+  },
+  {
+    "scenario_id": "P-0006",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a lived-in apartment dining area with a broad wooden table, chairs, shelves, and soft daylight through a nearby window, shown in a 3D/CG visual style, two adult housemates—one wearing a green T-shirt and yellow cleaning gloves, the other wearing a gray sweatshirt and blue cleaning gloves—continuously wipe and polish the table together, sharing the same surface as they work around its edges and stubborn marks. They exchange brief cleaning-related remarks while soft cloth-wiping sounds remain audible in the pauses between their voices."
+  },
+  {
+    "scenario_id": "P-0007",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic bright apartment laundry room contains a front-loading washer, a folding counter, open shelving, and baskets of clothes, where two adult roommates—one in a green T-shirt and one in a blue sweatshirt—work together continuously to sort mixed laundry by color and fabric, passing garments between them and placing each item into the appropriate basket. Upbeat music plays continuously over the overlapping washer hum, rustling fabric, and the roommates' brief conversation."
+  },
+  {
+    "scenario_id": "P-0008",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon style, a bright neighborhood laundromat has a long folding counter, rows of front-loading washers and dryers, baskets of clean clothes, and warm afternoon light streaming through the windows. Two roommates caring for a shared load—a young woman in a green cardigan with a neat black bob and a young man in a blue hoodie with curly brown hair—work together at the counter, repeatedly inspecting, smoothing, matching, and folding garments from the same basket, passing pieces between them and maintaining an organized stack. Washer drums hum continuously beneath the overlapping tumble of dryer loads and the soft rustle of handled fabric."
+  },
+  {
+    "scenario_id": "P-0009",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic tidy apartment utility room contains labeled fabric bins, neatly aligned shelves, folded linens, and an open floor beneath a broad rain-streaked window. One attentive gray tabby house cat with a white chest steadily wanders through the organized room, pausing to look around before continuing its unhurried patrol, while steady rain on the window overlaps with low wind outside and the soft hum of room ventilation."
+  },
+  {
+    "scenario_id": "P-0010",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon-style lived-in apartment room with a patched plaster wall, a drop cloth on the floor, an open window, and repair supplies nearby, an adult resident in practical work clothes steadily sands the patched wall with a hand block while an unattended time-lapse camera elsewhere in the room independently records the changing daylight across the repair area on a separate ongoing cycle. Steady rain and open-window traffic ambience overlap with the continuous rasp of sandpaper."
+  },
+  {
+    "scenario_id": "P-0011",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic bright apartment living room shows two adults, one in a green T-shirt and jeans and the other in a gray sweater and dark trousers, steadily assembling a wooden bookshelf together beside an open flat-pack furniture box, with wooden panels, hardware, and hand tools arranged on a protective rug. They hold the panels aligned while fitting and tightening the hardware as soft instrumental music plays continuously from a portable speaker."
+  },
+  {
+    "scenario_id": "P-0012",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a sunlit community garden rendered in an anime/cartoon style, long raised herb beds filled with dark, loose soil and leafy vegetables border a gravel path and low wooden fence. A young gardener in green overalls steadily waters the herb bed with a metal watering can while a small tortoise with a distinct amber-and-brown patterned shell remains clearly visible beside the plants, accompanied by the steady splash and trickle of water."
+  },
+  {
+    "scenario_id": "P-0013",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic bright apartment sunroom has tiled flooring, a low potting bench, scattered gardening tools, and soft daylight filtering through sheer windows, where an adult home gardener in rolled sleeves and a canvas apron cares for a tall potted monstera with broad split leaves and a compact potted rubber plant with glossy dark leaves. The gardener continuously inspects the foliage and soil, gently cleans leaves, adjusts stems, and applies water as needed, while a hand sprayer hisses over rustling leaves and a damp cloth squeaks softly against their surfaces."
+  },
+  {
+    "scenario_id": "P-0014",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a spacious neighborhood grocery store aisle rendered in 3D/CG, stocked produce displays, refrigerated cases, price labels, and a shopping cart surround an adult shopper carrying a reusable grocery list and a compact wheeled shopping-assistant robot with articulated arms. The shopper consults the robot while browsing, and the robot identifies requested groceries, reaches for suitable items, presents them for approval, and places accepted products into the cart as they continue shopping together, while its servo whirs and wheel motors alternate with the shopper's brief spoken requests."
+  },
+  {
+    "scenario_id": "P-0015",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A covered neighborhood produce market with colorful fruit and vegetable stalls, handwritten price signs, woven baskets, and canvas awnings under warm daylight, rendered as a painting-style illustration. A compact wheeled service robot with articulated arms and a front-mounted shopping basket steadily browses a produce stall, lifting individual fruits and vegetables to inspect them before returning them to the display or placing them in its basket, while a low market murmur alternates naturally with passing gusts rustling the canvas awnings."
+  },
+  {
+    "scenario_id": "P-0016",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic sunlit apartment corner set aside for a pet features warm wooden flooring, a low wall shelf, and soft daylight through a nearby window, with a compact white ceramic pet fountain with a visible water basin beside a cushioned oval pet bed with a textured fabric cover. The fountain continuously circulates a gentle stream of clear water into its basin while the bed remains stationary, accompanied by soft instrumental music playing continuously over the fountain's steady water trickle."
+  },
+  {
+    "scenario_id": "P-0017",
+    "track": "progressive",
+    "selected_attempt": 2,
+    "prompts": "In a 3D/CG sheltered bamboo-grove bathing terrace surrounding a shallow stone pool, with mossy rocks, damp wooden platforms, hanging cloths, and soft mist beneath an overcast sky, four individually recognizable Japanese macaques gather beside the pool: a large silver-coated adult with a broad pink face, a slender brown adult with a pale cheek patch, a dark-furred juvenile with a small crest, and a golden-brown juvenile with a freckled muzzle. They sustain a shared grooming session in which one macaque at a time grooms a companion as the others wait calmly, with the grooming role passing naturally around the group, while wind rustling through the bamboo alternates with gentle rain pattering on the shelter roof."
+  },
+  {
+    "scenario_id": "P-0018",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic bright, tidy living room with an exercise mat, a sturdy chair, and soft daylight entering through a window, a woman in comfortable workout clothes continuously performs a self-contained sequence of bodyweight squats, lunges, arm circles, and balance holds on the open floor without using the chair, mat, or any exercise equipment. Her softly spoken repetition counts and coaching cues alternate with quiet breaths during the exercise."
+  },
+  {
+    "scenario_id": "P-0019",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic spacious public library reading room features long wooden tables with individual lamps, tall bookcases, and soft daylight filtering through large windows, where four distinct patrons—an elderly man in a gray cardigan, a young woman with braided hair and round glasses, a middle-aged man in a navy sweater, and a teenage girl wearing a green hoodie—sit absorbed in their books. They steadily scan the pages and occasionally turn a page while maintaining the same quiet activity, accompanied by the continuous mechanical hum of the ventilation system in the background."
+  },
+  {
+    "scenario_id": "P-0020",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A cozy apartment dining table under warm evening light holds a colorful modular tabletop racing board with looping lanes, ramps, barriers, and scattered score tokens, rendered in a 3D/CG style. Four distinct miniature remote-controlled game-piece vehicles—a glossy red rally car with white stripes, a compact blue pickup truck with a silver roll bar, a yellow dune buggy with exposed black wheels, and a green delivery van with a checkerboard roof—continuously navigate the winding lanes and negotiate the reusable obstacles while remaining individually recognizable. A single offscreen player provides continuous lively spoken commentary on the tabletop race."
+  },
+  {
+    "scenario_id": "P-0021",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic, well-lit home hobby workshop containing a handcrafted tabletop terrain course with wooden ramps, stone obstacles, miniature bridges, and neatly arranged modeling supplies, a meticulously customized, weathered, hand-painted radio-controlled off-road truck with distinctive blue bodywork and detailed scale accessories continuously negotiates the course. At a separate modeling station, an unattended desktop 3D printer independently fabricates replacement terrain pieces on its own sustained cycle, while a single off-camera hobbyist calmly narrates the truck's custom construction and handling."
+  },
+  {
+    "scenario_id": "P-0022",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a cozy neighborhood music studio rendered in an anime/cartoon style, warm lamplight illuminates pale acoustic wall panels, a polished wooden floor, open sheet music on a stand, and a dark walnut upright piano with a glossy finish and clearly visible keys. A seated player's hands continuously practice on the piano, repeating and refining scales, chords, and short musical phrases as the piano practice alternates with the player's brief spoken count-ins."
+  },
+  {
+    "scenario_id": "P-0023",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "On a photorealistic compact apartment balcony with terracotta floor tiles, a woven outdoor rug, potted greenery, and a low railing overlooking neighboring rooftops in warm late-afternoon light, an older man in a pale linen shirt and a younger woman in a loose blue cardigan relax side by side in matching wicker lounge chairs. The man continuously practices a slow, self-contained seated breathing exercise with closed eyes and small natural posture adjustments, while the woman dozes naturally in the neighboring chair without participating in another activity; ceramic wind-chime taps overlap with soft clicks from a loose railing fitting and light knocks from a planter tag against its pot."
+  },
+  {
+    "scenario_id": "P-0024",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic lived-in apartment bedroom with open cardboard boxes, folded packing paper, a half-cleared wardrobe, and household belongings arranged across the floor beneath a rain-streaked window, an adult resident in casual indoor clothing continuously packs and cushions the belongings into the open boxes. A compact automatic label printer independently produces destination labels for a separate prepared stack on its own repeating cycle, while steady rain against the window, muted traffic outside, and a low ventilation hum overlap with the resident's soft cardboard and packing-paper rustle."
+  },
+  {
+    "scenario_id": "P-0025",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a bright open-plan office with shared desks, rolling chairs, low shelves, document trays, and soft daylight through tall windows, a trained border collie wearing a small office delivery harness continually carries a document pouch among nearby desks, offering it to waiting coworkers and accepting it back for another delivery while remaining attentive to hand signals. The scene is photorealistic, with a steady ventilation hum filling the office."
+  },
+  {
+    "scenario_id": "P-0026",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic view of a bright shared home office shows two remote-working professionals at two neighboring desks with open laptops, external monitors, notebooks, and daylight filtering through a window. One professional, seated at a desk and wearing a headset, continuously participates in a remote discussion while reviewing documents and taking notes, while the designer at the neighboring workstation simultaneously develops visual layouts on a pen display, alternating between drawing and keyboard input and checking references on a second monitor; soft instrumental music plays between intermittent stretches of remote-meeting speech, with little overlap between the music and speech."
+  },
+  {
+    "scenario_id": "P-0027",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic spacious indoor primate cognition enclosure contains climbing branches, leafy planters, and a transparent touch-sensitive testing console beneath a glass roof, with discreet sensors mounted around the habitat, and houses four individually recognizable rhesus macaques: a large silver-brown macaque wearing a blue identification collar, a slender golden-brown macaque wearing a red identification collar, a dark-faced juvenile wearing a green identification collar, and a pale-faced macaque with a notched left ear wearing a yellow identification collar. The four macaques repeatedly approach, inspect, and manipulate the instrumented console in response to changing illuminated symbols, taking turns pressing its panels and collecting dispensed food rewards while remaining attentive to one another's interactions with the device, as steady rain drumming on the glass roof continuously overlaps with the ventilation hum and rustling enclosure foliage."
+  },
+  {
+    "scenario_id": "P-0028",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic darkened acoustics laboratory features a vibration-isolated workbench, matte black walls, calibrated measurement markings, and soft overhead task lighting, with a taut circular experimental membrane mounted in a metal frame and a precision scanning laser vibrometer on an adjustable stand. The vibrometer continuously tracks the membrane's music-driven vibrations as its measurement beam moves gradually across the surface and fine rippling patterns persist and shift, while sustained synthesized music from a laboratory speaker continuously overlaps the low, steady hum of the measurement equipment."
+  },
+  {
+    "scenario_id": "P-0029",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a bright anime-style art classroom, a lively enchanted paintbrush with a distinctive blue handle and gold ferrule works beside a paint-splattered easel and large canvas, with open color jars and sunlit shelves of art supplies around it. The brush continuously mixes colors from the jars and paints flowing shapes across the canvas, adjusting its strokes in response to the artwork already forming, while an art instructor's spoken guidance overlaps with students' animated conversation and the soft swish of bristles on canvas."
+  },
+  {
+    "scenario_id": "P-0030",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic scene in a quiet daylight art studio shows a broad wooden drafting table beside a large window, surrounded by neatly arranged pencils, ink pens, erasers, paper, and reference plants, with a focused adult artist in a paint-marked linen apron seated at the table and steadily developing a detailed botanical drawing on a large sheet of paper. The artist observes the nearby plants while building contours, shading textures, correcting marks, and refining fine details with hand tools, as pencil strokes rasp across the paper, intermittently giving way to soft eraser rubs and brief tool taps on the wooden table."
+  },
+  {
+    "scenario_id": "P-0031",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a painting-and-illustration style, a spacious sculpture studio features a stone-dusted workbench, racks of hand tools, tall windows, and warm diffuse daylight, where a compact artisan robot with articulated metal arms and a dust-marked protective apron continuously carves and refines a stone sculpture, maintaining a steady working rhythm while adjusting pressure and angle across its surface. Measured chisel taps alternate with gritty rasping against stone."
+  },
+  {
+    "scenario_id": "P-0032",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "Photorealistic view of a well-used pottery studio with a spinning wheel, clay-splattered workbench, shelves of unfinished vessels, and soft daylight through a large window, where an experienced potter in a clay-stained apron continuously shapes wet clay on the wheel while explaining that same wheel-shaping process aloud. A compact automated kiln independently fires a separate batch of glazed test pieces on its own sustained thermal cycle, while the potter's continuous instructional speech remains the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0033",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A cozy anime-style tailoring workshop contains long fabric bolts on wooden shelves, a broad worktable, warm pendant lighting, and rain-streaked windows, with a programmable industrial sewing machine set up for continuous decorative stitching. The machine continuously stitches flowing decorative patterns into a large sheet of fabric as its motorized carriage guides the cloth in shifting directions and its integrated auxiliary winder steadily prepares a fresh bobbin alongside the sewing, while steady rain patters against the windows and workshop ventilation hums beneath the continuous mechanical chatter of the machine."
+  },
+  {
+    "scenario_id": "P-0034",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "3D/CG view of a spacious timber workshop with a foot-powered wood lathe, sturdy workbench, neatly arranged hand tools, stacked lumber, and warm daylight filtering through dusty windows, where a single experienced woodworker in a canvas apron and protective goggles continuously turns and carves a wooden blank on the treadle lathe. An automated drying cabinet independently conditions a separate set of bent timber slats on its own sustained cycle as a steady instrumental jazz track plays continuously from a workshop radio."
+  },
+  {
+    "scenario_id": "P-0035",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A painting-style illustration of a spacious traditional metalworking forge, with a glowing coal hearth, a heavy anvil, racks of tongs and hammers, and warm firelight reflecting across soot-darkened brick walls. Two human metalworkers share the forge: an experienced blacksmith in a leather apron and protective gloves continually heats and hammers workable metal on the anvil, while a forge assistant in work clothes and protective eyewear simultaneously operates the forge bellows and tends additional stock with long tongs, sustaining coordinated metalworking without a fixed endpoint. Rhythmic hammer blows alternate with the bellows' mechanical creak, with little overlap."
+  },
+  {
+    "scenario_id": "P-0036",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A well-lit electronics workshop contains an anti-static workbench with component trays, circuit boards, precision hand tools, a soldering station, and a magnifying lamp, presented in a photorealistic style. An experienced electronics technician wearing an anti-static wrist strap and a second electronics technician wearing safety glasses and an anti-static wrist strap continuously collaborate around the same circuit board; one positions and checks components while the other solders them in place, and both coordinate their work. The experienced technician speaks steadily to guide the assembly."
+  },
+  {
+    "scenario_id": "P-0037",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic, spacious professional photography studio has a seamless gray backdrop, softboxes, reflector panels, a camera tripod, and a motorized platform arranged under controlled neutral lighting. A professional studio photographer in practical dark studio clothing steadily captures product photographs, repeatedly refining framing and focus while taking exposures within the same setup. Repeated camera shutter clicks and autofocus whirs overlap with the steady mechanical hum of the motorized platform."
+  },
+  {
+    "scenario_id": "P-0038",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a compact anime-style film studio, a practical apartment set is surrounded by a camera dolly and lighting rigs, with monitors and sound equipment arranged just beyond the set walls. A director wearing a headset and holding a marked script continuously watches the monitor and gives measured performance cues while an actor in casual apartment-scene costume rehearses and delivers lines; at the same time, a camera operator guides a cinema camera along the short dolly to maintain smooth framing, and a boom operator tracks the actor with a microphone held close above the performance area but out of view. The director's brief spoken cues alternate with the actor's clear dialogue, accompanied only by subdued dolly-wheel movement."
+  },
+  {
+    "scenario_id": "P-0039",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a spacious digital design studio with a large interactive display, illuminated drafting surfaces, organized color swatches, and softly glowing interface panels, a compact graphic-design robot with articulated stylus arms works alongside a human art director focused on the shared display, rendered in a 3D / CG style. The robot continuously adjusts typography, shapes, spacing, and color on a flexible poster layout as the art director studies the same composition and provides ongoing visual guidance for the robot to incorporate, while a steady ventilation hum fills the studio."
+  },
+  {
+    "scenario_id": "P-0040",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a bright cartoon-style prototyping workshop with a large workbench, modular test track, parts bins, sketches, and diagnostic screens, a compact orange four-wheeled delivery rover prototype with a sensor mast is collaboratively evaluated and refined by a lead designer in a blue utility jacket, a mechanical engineer with round glasses and a green apron, and an interaction designer wearing a yellow headset. The three designers take turns discussing the rover's behavior while adjusting its modular components and guiding it through repeated maneuvers on the test track, with their alternating technical discussion punctuated by brief, non-overlapping motor whirs from the rover."
+  },
+  {
+    "scenario_id": "P-0041",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic, well-used piano repair workshop, a focused piano technician in a work apron works continuously on an open upright piano beneath bright task lamps, surrounded by organized shelves of replacement parts, hand tools, felt, and tuning equipment. The technician remains engaged with the same instrument, diagnosing and repairing it by adjusting the exposed action, replacing worn components, checking key response, and refining the tuning. Steady classical music from a nearby radio overlaps with resonant piano test notes and quiet tool clicks."
+  },
+  {
+    "scenario_id": "P-0042",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic stainless-steel professional kitchen workstation beneath bright task lighting holds an induction range, cutting board, mixing bowls, fresh ingredients, and neatly arranged utensils, where a single stainless-steel multi-armed culinary robot with articulated arms and precision grippers works continuously. At the shared workstation, separate arms simultaneously chop vegetables, stir a simmering sauce, and knead dough while the robot monitors each preparation, accompanied by the steady mechanical whir of its servomotors."
+  },
+  {
+    "scenario_id": "P-0043",
+    "track": "progressive",
+    "selected_attempt": 2,
+    "prompts": "A 3D/CG scene of a broad wheat field stretching across gently rolling farmland beneath a clear afternoon sky, with long crop rows, dry soil, and distant hedgerows. A large green electric combine harvester with a wide cutting header continuously harvests the standing wheat in steady passes while a farmer, clearly visible inside the glass cab, keeps it aligned with the crop rows, as wind moving through the wheat rises and falls between isolated distant bird calls."
+  },
+  {
+    "scenario_id": "P-0044",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic view of a spacious warehouse loading aisle lined with tall steel racks, labeled storage bays, stacked cartons, and a smooth concrete floor under bright industrial lighting, where two warehouse workers coordinate: one in a high-visibility vest pulls a loaded pallet jack while the second, wearing safety gear, guides the pallet's alignment. They continuously maneuver and align loaded pallets within marked storage bays, with one controlling the pallet jack and the other directing positioning through gestures and close visual checks as the jack's wheels rumble and clatter across the concrete floor."
+  },
+  {
+    "scenario_id": "P-0045",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic shallow forest stream flows beside a broad, partially built dam of interlocked branches, stones, and packed mud under soft overcast daylight, where four individually recognizable adult beavers work together: a large dark-brown beaver with a pale muzzle, a chestnut beaver with a notched left ear, a compact golden-brown beaver with a dark tail, and a gray-brown beaver with a white patch beneath its chin. They continuously reinforce the same dam by gripping, dragging, aligning, and pressing loose branches and stones into stable gaps while adjusting one another's placements. Wet branches scrape and thud into place between distinct intermittent clacks of shifting stones."
+  },
+  {
+    "scenario_id": "P-0046",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic, brightly lit steel rolling mill control bay overlooks moving sheet metal, illuminated instrument panels, safety railings, and heavy machinery in a spacious factory interior. A senior mill operator in a hard hat, safety glasses, and reflective coveralls and a younger mill operator in a hard hat, hearing protection, and reflective coveralls continuously monitor the rolling line with focused attention on its live readings and operating conditions, exchanging clear, alternating spoken readings without talking over one another."
+  },
+  {
+    "scenario_id": "P-0047",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a cozy, lantern-lit anime/cartoon living room opening onto a covered veranda, a low wooden table surrounded by floor cushions and framed family pictures holds a large unfinished wooden jigsaw puzzle. A multigenerational family of five anthropomorphic red pandas—an elderly grandmother in a plum cardigan with silver-tipped ears, an elderly grandfather in round glasses and a moss-green vest, an adult mother in a blue patterned blouse with a pale cheek stripe, a teenager in a yellow hoodie with a dark ringed tail, and a young child in striped overalls with a small ear notch—remain gathered together, continuously comparing pieces, passing promising matches across the table, and helping one another fit them into the shared picture. Wooden puzzle pieces softly click against the tabletop."
+  },
+  {
+    "scenario_id": "P-0048",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a warmly lit, photorealistic apartment living room with a low coffee table, floor cushions, houseplants, and evening city lights visible through broad windows, four distinct adult friends form a loose music circle: a woman with short curly hair in a rust-colored cardigan, a bearded man in a green plaid shirt, a woman with long braided hair in a cream sweater, and a man with round glasses in a navy hoodie. They sustain a collaborative acoustic jam, watching one another closely and trading responsive musical phrases while keeping a shared rhythm, as acoustic guitar phrases and hand-drum responses alternate clearly over faint room ambience."
+  },
+  {
+    "scenario_id": "P-0049",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a warm anime-style apartment dining room, five friends—a young woman in a yellow cardigan, a young man in a blue sweatshirt, a woman with short auburn hair, a bespectacled man in a green sweater, and a woman wearing a red headband—gather closely around a low wooden table beneath warm pendant lights, surrounded by shared serving dishes, rice bowls, chopsticks, cups, and a gently steaming hot pot. They continue sharing the meal, reaching into communal dishes, passing bowls and platters, serving portions, eating, and responding naturally across the table, accompanied by overlapping clinks of chopsticks and ceramic bowls, the scrape of serving utensils, and the soft bubbling of the hot pot."
+  },
+  {
+    "scenario_id": "P-0050",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "Photorealistic view of a warmly lit dining room arranged for a birthday gathering with colorful garlands, balloons, wrapped gifts, and a decorated table, where an adult birthday celebrant wearing a festive paper crown continuously performs an unaccompanied free-form birthday dance of self-contained steps, turns, and bodily gestures beside a large layered birthday cake displayed passively on a rotating stand. Rhythmic shoe taps overlap with paper-garland rustle and light balloon-string clicks."
+  },
+  {
+    "scenario_id": "P-0051",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "Create a warm painting-style illustration of a banquet hall with a flower-framed head table, linen-covered dining tables, softly glowing pendant lights, and painted garlands beneath a high vaulted ceiling. Beside the head table, a polished humanoid emcee robot wearing a formal bow tie continuously delivers an improvised celebratory toast in a warm amplified voice, while the newlywed couple—one in an ivory wedding gown and the other in a dark formal suit—remain seated together and attentively focused on the speech."
+  },
+  {
+    "scenario_id": "P-0052",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic open-air neighborhood repair gathering fills a shaded community plaza with folding worktables, bicycle stands, labeled supply bins, and strings of paper bunting, where three community volunteers work at adjacent stations: a bicycle mechanic in a green work apron continuously inspects, adjusts, and tests community bicycles, a volunteer sign maker wearing a red cap prepares and presses labels for shared supplies, and a gathering coordinator with a blue clipboard simultaneously sorts incoming items, updates the clipboard, and directs nearby attendees between stations. Intermittent bicycle freewheel clicks and firm label-press clacks alternate in distinct bursts with little overlap."
+  },
+  {
+    "scenario_id": "P-0053",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic leafy residential cul-de-sac, a small shared lawn with folding chairs, string lights, and a low neighborhood refreshment table sits in warm evening light. A middle-aged woman in a green cardigan plays an acoustic guitar while a young man in a denim jacket sits behind a hand drum, sustaining an informal duet for the neighborhood meetup as they watch and respond to each other's tempo and dynamics; acoustic guitar chords and hand-drum rhythms overlap continuously over quiet neighbor chatter."
+  },
+  {
+    "scenario_id": "P-0054",
+    "track": "progressive",
+    "selected_attempt": 3,
+    "prompts": "Photorealistic view of a quiet, softly lit lounge in a contemporary community center, with comfortable seating, low tables, and broad windows overlooking a leafy courtyard, where a compact humanoid social robot with expressive illuminated eyes and a casually dressed adult visitor seated nearby continuously sustain an informal two-way conversation through short remarks and responses. The visitor simultaneously develops a pencil sketch in a small notebook between and during conversational turns, while the robot's salient soft servo whirs accompany its synthesized remarks alternating with the visitor's spoken replies with little overlap."
+  },
+  {
+    "scenario_id": "P-0055",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A lively painting-style illustration of a town square features café tables, market awnings, a public fountain, and a steady flow of background pedestrians, with a vividly colored talking parrot perched recognizably on a low public railing. The parrot continuously turns toward passing visitors, greets them, and responds to their gestures and offered perches, while its clear calls and short phrases alternate with brief spoken replies from the visitors."
+  },
+  {
+    "scenario_id": "P-0056",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic shaded urban courtyard features a round table and chairs beneath mature trees, bordered by low shrubs and a nearby street, where three adult community organizers—an older woman in a blue cardigan, a young man in a tan jacket, and a middle-aged woman wearing a green scarf—sit together around a neighborhood plan spread across the table. They sustain an open-ended collaborative discussion, taking turns speaking, listening, pointing to details, and responding to one another, while the ambient sound alternates naturally between rustling leaves in passing breezes and brief swells of distant street traffic."
+  },
+  {
+    "scenario_id": "P-0057",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A warmly lit university library study room in 3D/CG features a large shared table with open textbooks, notebooks, laptops, a whiteboard, and a tabletop speaker, where three distinct university students form a study group: a student in a green hoodie with round glasses continuously develops equations on the whiteboard, a student in a striped sweater with braided hair compares and annotates material across the open books, and a student in a blue cardigan with short curly hair types and organizes shared notes as they exchange brief questions and point out useful details to one another. Steady instrumental music overlaps with quiet group discussion and rhythmic keyboard tapping."
+  },
+  {
+    "scenario_id": "P-0058",
+    "track": "progressive",
+    "selected_attempt": 2,
+    "prompts": "A spacious 3D-rendered classroom has rows of desks, a large whiteboard displaying a discussion question, and soft daylight entering through tall windows, with a friendly humanoid classroom robot standing beside the whiteboard and a focused student seated at a front desk. The robot and student sustain an open-ended spoken discussion about the question: the robot asks follow-up questions and offers brief counterpoints, while the student answers, asks questions in return, and occasionally jots brief notes before rejoining the exchange, with both listening and responding as the topic develops without a prescribed conclusion. Crisp pencil scratches remain acoustically prominent during the recurring brief note-taking pauses and alternate clearly with the robot's and student's turn-taking speech, without the two speakers talking over each other."
+  },
+  {
+    "scenario_id": "P-0059",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic scene in a sunlit outdoor driver-training yard with painted practice lanes, traffic cones, a shaded instruction table, and trees bordering the paved lot shows an experienced driving instructor in a reflective vest continuously coaching a learner seated behind the wheel of a clearly marked, stationary compact dual-control training car on steering posture and mirror checks. Nearby, a second learner practices identifying cone-marked turning lines while a third reviews a road-safety diagram and exchanges observations with the group, with a steady breeze moving through the surrounding trees as the sole salient sound."
+  },
+  {
+    "scenario_id": "P-0060",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a softly lit 3D/CG assisted-living room with an adjustable bed, a bedside table, neatly arranged care supplies, and warm daylight filtering through half-open blinds, an older resident sits upright beside the bed while a professional caregiver in practical scrubs steadily assists with gentle seated mobility exercises, checks the resident's comfort, and adjusts supportive cushions. The resident follows the motions at an unhurried pace as an attentive adult family companion seated nearby continuously sorts fresh clothing and keeps needed items within easy reach, with a steady ventilation-system hum filling the room."
+  },
+  {
+    "scenario_id": "P-0061",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a well-lit neighborhood bicycle workshop with a repair stand, organized tool racks, spare parts, and an open workbench, a volunteer bicycle mechanic in a canvas apron provides hands-on repair help to a cyclist in casual riding clothes. In a photorealistic style, the mechanic continuously inspects, adjusts, and demonstrates repairs on the bicycle's drivetrain while the cyclist steadies the frame, inflates a tire, and asks questions, maintaining their simultaneous work and consultation as overlapping conversation remains prominent alongside ratchet clicks and rhythmic tire-pump hisses."
+  },
+  {
+    "scenario_id": "P-0062",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A cozy 3D-rendered game room features a round wooden table under warm pendant lighting, with softly blurred shelves in the background and a polished wooden chessboard holding individually carved light and dark pieces beside a twin-dial mechanical chess clock with contrasting push buttons. Two off-screen players sustain a casual chess game by repeatedly considering and making legal moves, pressing the clock after each turn, and alternating brief spoken reactions and strategic remarks without talking over each other."
+  },
+  {
+    "scenario_id": "P-0063",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "On a shady city-park lawn beneath gently moving tree branches, two distinct young adult friends—one with short dark hair and a green sun hat, the other with long auburn hair and a yellow cardigan—and an alert tricolor corgi in a blue bandana gather around a colorful blanket with open picnic baskets, reusable dishes, a small portable fan, an instant camera, and scattered wildflowers in an anime/cartoon style. One friend keeps arranging and sharing picnic food as the other sketches the gathering and takes candid instant photos, while the lively corgi repeatedly investigates the blanket and plays with a nearby soft toy, with all three continuing to exchange looks, gestures, and playful attention as the fan whirs between occasional instant-camera film-advance buzzes."
+  },
+  {
+    "scenario_id": "P-0064",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic, warmly lit apartment living room is arranged for a house party with colorful string lights, modest decorations, a snack table, and lived-in furnishings. An adult guest in a dark green sweater sustains an unaccompanied free-form dance with self-directed humming and gestures, while an adult guest in a patterned red shirt rests comfortably on a sofa at the quiet edge of the party, eyes closed and breathing easily. The dancer’s humming overlaps with diffuse offscreen party conversation and occasional laughter elsewhere in the apartment."
+  },
+  {
+    "scenario_id": "P-0065",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a quiet executive conference room rendered in a photorealistic style, a senior committee chair in a charcoal suit and a committee secretary in a navy business suit sit at a long polished table with neatly arranged agenda folders and water glasses, surrounded by restrained corporate decor and soft daylight filtering through floor-to-ceiling windows. Both committee members continuously review and annotate the formal meeting agenda, remaining focused on their own documents with natural shifts in posture and attention, while a steady low ventilation hum fills the room."
+  },
+  {
+    "scenario_id": "P-0066",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic compact independent music shop has warm wooden shelving, instrument cases, handwritten price tags, a glass counter holding a written purchase proposal, and a softly playing radio, with an experienced shop owner and a careful prospective instrument buyer at the counter. The buyer and owner sustain a negotiation over the proposal: the buyer marks a price and slides the sheet across the glass counter, the owner reviews it, writes a counteroffer, and slides it back, and they repeat this turn-taking exchange as they narrow the instrument's price and sale terms. Soft jazz from the shop radio remains salient, with brief paper rustles audible only in the pauses between tracks."
+  },
+  {
+    "scenario_id": "P-0067",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic, warmly lit independent radio studio features a round broadcast table, suspended microphones, acoustic wall panels, and a glass window into a compact live-performance booth, where an attentive radio host wearing headphones sustains an open-ended interview with a veteran singer seated across from the host and a younger songwriter seated beside the singer. The two guests answer, react to one another, and gesture conversationally as a guitarist in the adjoining booth continuously performs improvised accompaniment, adjusting the phrasing in response to their discussion, while the live guitar overlaps with the host's questions, the guests' alternating voices, and occasional shared laughter."
+  },
+  {
+    "scenario_id": "P-0068",
+    "track": "progressive",
+    "selected_attempt": 2,
+    "prompts": "A photorealistic, warmly lit childhood bedroom in a long-unvisited family home, with faded photographs, familiar furniture, afternoon light filtering through lace curtains, and an open laptop on the dresser facing a visibly moved middle-aged woman in a travel-worn coat. She sustains a live reunion call with a long-separated relative, using sign language to share greetings, memories, updates, and questions while responding warmly to the relative’s affectionate reminiscences and gentle laughter coming clearly from the laptop, their contributions naturally building into a continuous reciprocal exchange."
+  },
+  {
+    "scenario_id": "P-0069",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a small candlelit rehearsal room rendered as a richly textured storybook painting, an expressive solo singer in modest stage attire continuously performs an unaccompanied song with natural breaths and restrained self-directed gestures, while a calm stage assistant rests comfortably beside a table of simple sound-making props on the worn wooden floor near painted curtains. Prominent swishes from the singer’s loose sleeves alternate with passages of clear solo singing."
+  },
+  {
+    "scenario_id": "P-0070",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A spacious 3D/CG concert hall stage features curved acoustic panels, tiered choir risers, warm overhead lighting, and an empty auditorium beyond the footlights. Four adult singers perform as a close vocal ensemble: an alto with short silver hair in a burgundy concert robe, a soprano with long braided hair in a navy concert robe, a tenor with round glasses in a charcoal concert suit, and a bass with a trimmed beard in a deep green concert suit. They sustain a coordinated choral performance, continually listening and adjusting their breathing, pitch, dynamics, and phrasing to blend their distinct vocal parts into unified harmony, while their four overlapping voices are accompanied only by subtle synchronized breaths and the hall's natural reverberation."
+  },
+  {
+    "scenario_id": "P-0071",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A trained brown capuchin monkey sits at a polished grand piano in a warmly lit, photorealistic recital studio with dark wood paneling, an adjustable bench, and a mechanical metronome on the music stand. The capuchin continuously performs, pressing shifting combinations of keys with both hands while operating the sustain pedal and following the metronome's steady pulse, as resonant piano notes overlap with crisp key-and-hammer clacks, pedal linkage creaks, and steady mechanical ticking."
+  },
+  {
+    "scenario_id": "P-0072",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic intimate industrial loft performance space features a low wooden stage under warm practical lighting, exposed brick walls, guitar amplifiers, a compact percussion setup, and coiled cables across the floor, where a polished humanoid robot holding an electric guitar performs with a casually dressed human percussionist seated at a cajón. The robot continuously improvises guitar riffs while adjusting its fretting, picking dynamics, and effects pedals as the percussionist simultaneously sustains an evolving cajón rhythm, responding to the robot's phrasing with changes in tempo and intensity; amplified electric guitar and resonant cajón rhythms overlap continuously over a faint amplifier hum."
+  },
+  {
+    "scenario_id": "P-0073",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic intimate wood-paneled recital room with warm overhead lighting, acoustic wall panels, rows of empty chairs, and a low concert platform, an exposed-gear mechanical violin apparatus with a motorized bow and a floor-standing mechanical cello apparatus with articulated bowing arms perform together. The two self-playing string instruments sustain a coordinated duet, continuously responding to each other's phrasing through synchronized bowing and fingering mechanisms. Alternating gear whirs and articulated servo clicks remain salient beneath the interlocking violin and cello tones, with the mechanical sources rarely overlapping each other."
+  },
+  {
+    "scenario_id": "P-0074",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic, warmly lit rehearsal studio with acoustic wood panels, patterned rugs, percussion stands, and soft daylight filtering through high windows contains two percussionists performing as a coordinated duo: one seated at a pair of hand drums and the other standing at a compact cymbal and frame-drum setup. Watching and listening to each other, they sustain a responsive duet on their respective instruments, interlocking repeating rhythms, mirroring accents, and continuously adjusting their timing and intensity as hand-drum rhythms, frame-drum strikes, and shimmering cymbal patterns overlap in a cohesive musical performance."
+  },
+  {
+    "scenario_id": "P-0075",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a small anime-style rehearsal studio with warm ceiling lights, acoustic wall panels, coiled cables, and a compact one-person band setup, a focused human multi-instrumentalist wearing a guitar, harmonica harness, and foot-mounted percussion controls continuously strums rhythmic patterns, works the foot percussion controls, plays short harmonica phrases, and adjusts a loop pedal while maintaining the layered band performance. Crisp pedal clicks and foot-percussion strikes remain salient, alternating with distinct guitar strums and brief harmonica phrases with little overlap."
+  },
+  {
+    "scenario_id": "P-0076",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic grand concert hall stage beneath warm overhead lighting features a seated symphony orchestra with music stands on polished wooden flooring and a dark audience beyond the footlights, alongside a soprano soloist in formal concert attire, an expressive conductor holding a baton, and a lead violinist seated at the front of the ensemble. The soprano sustains an expressive vocal performance while the conductor continuously shapes the ensemble with precise gestures and the lead violinist plays an intricate melodic line, all interacting with the orchestra's ongoing accompaniment, as the prominent singing overlaps with the violin melody and full orchestra beneath it."
+  },
+  {
+    "scenario_id": "P-0077",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic humid rainforest understory centers on a broad green leaf forming a natural platform amid softly lit moss, ferns, and rain-darkened foliage. One vividly patterned male peacock spider with an iridescent abdominal fan continuously performs an elaborate display dance across the leaf, fluidly moving side to side while repeatedly orienting its raised legs and fanned abdomen around the central vein, as steady rainfall patters on the surrounding forest canopy."
+  },
+  {
+    "scenario_id": "P-0078",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a spacious rehearsal studio with a sprung black floor, mirrored wall, overhead practice lights, and a motorized projection system casting a formation of life-size dancer silhouettes across the floor, a focused lead dancer in fitted rehearsal clothes continuously matches, leads, and adjusts their movements in relation to the projected ensemble, maintaining coordinated group-dance spacing and rhythm as the formation shifts fluidly around them, rendered in a photorealistic style. The projection carriage motor hums during formation shifts, with distinct servo clicks sounding in quieter intervals."
+  },
+  {
+    "scenario_id": "P-0079",
+    "track": "progressive",
+    "selected_attempt": 2,
+    "prompts": "In a spacious, photorealistic ballet rehearsal studio with pale wooden flooring, mirrored walls, tall windows, and soft daylight, a female and a male ballet dancer wear simple rehearsal attire. One continuously performs an unaccompanied solo floor sequence of self-contained steps, turns, balances, and leaps, while the partner sits comfortably at the studio edge, breathing easily and resting quietly as a steady wash of rain against the windows fills the room."
+  },
+  {
+    "scenario_id": "P-0080",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon style, three expressive young street dancers in distinctive layered outfits perform on a cleared patch of pavement in a broad pedestrian plaza beneath colorful storefront awnings, surrounded by graffiti-covered walls and warm evening streetlights. The dancer in a red varsity jacket and black cap sustains a flowing freestyle at the center while the dancer in a teal hoodie and loose gray trousers circles nearby with complementary footwork and gestures, and the dancer in a yellow windbreaker and purple sneakers maintains a vocal rhythm, calls encouragement, and marks the beat with smaller dance steps as all three continuously react to one another; rhythmic beatboxing and overlapping shouted encouragement remain prominent over simultaneous sneaker scuffs and handclaps."
+  },
+  {
+    "scenario_id": "P-0081",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic small proscenium theater, the stage is dressed as a weathered village square with painted stone facades, a central wooden platform, muted footlights, and a large hand-cranked wind machine at one side. A physical theater actor in a worn traveling-performer costume sustains a self-contained silent performance through expressive gait, posture, facial expression, and empty-handed gestures, while a trained glossy black raven sleeps naturally on a sheltered low scenic perch. The actor's soft costume rustle remains the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0082",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A textured painting-style illustration depicts an intimate black-box theater with a bare wooden stage, painted backdrop, warm footlights, and rows of shadowed seats, where a single improviser in simple neutral stage clothes sustains a self-contained, unscripted solo performance through expressive changes in posture, facial expression, and rhythmic full-body movement across the stage. A single offstage instrumental soundtrack plays continuously."
+  },
+  {
+    "scenario_id": "P-0083",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A spacious motion-capture rehearsal studio with padded gray walls, a marked performance floor, soft overhead lighting, and a script stand beside a control console, rendered in a 3D/CG style. A sleek humanoid performance robot with an expressive articulated face and hands continuously rehearses dialogue with a human vocal coach holding a marked rehearsal script; the coach delivers lines and timing cues while the robot responds with synchronized facial expressions, posture, and gestures for ongoing refinement. The coach's clear spoken lines and timing cues are the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0084",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic compact puppet booth stands on a pedestrian plaza beneath warm shopfront lights, with a small open viewing area on the paving stones. Behind the booth, a lead puppeteer in a weathered burgundy coat and a second puppeteer in a dark cap and rolled-sleeve shirt continuously work together on an improvised hand-puppet performance, coordinating the figures' gestures and reactions while the lead supplies spoken character dialogue in animated voices that remain the single prominent sound source."
+  },
+  {
+    "scenario_id": "P-0085",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic intimate brick-walled courtyard performance space at dusk, a small wooden stage sits beneath warm string lights beside an open archway facing wind-stirred trees, with a standing microphone at the rear. A focused adult poet in simple contemporary clothing continuously delivers an unamplified, open-ended spoken-word improvisation from the open center of the stage, sustaining expressive cadence and natural self-directed gestures while the microphone remains unused. The poet's measured voice fills the space, while gusting wind and rustling leaves become most distinct in the pauses."
+  },
+  {
+    "scenario_id": "P-0086",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon-style broad coastal airshow field beside a sunlit bay, a clear aerobatic zone stretches above distant cliffs beneath looping smoke traces, with a marked apron beside the runway. A red single-prop stunt airplane with white star markings continuously performs self-contained rolls, climbs, banks, and broad flowing curves alone through the unobstructed aerobatic zone, while a cobalt-blue single-prop stunt airplane with silver wing tips, a yellow single-prop stunt airplane with black lightning stripes, and a green single-prop stunt airplane with orange tail markings remain securely parked and powered down on the apron. Energetic orchestral music continuously overlaps the red airplane's single propeller engine and the rushing wind."
+  },
+  {
+    "scenario_id": "P-0087",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a richly lit 3D CG circus ring beneath a striped big-top canopy, a suspended trapeze hangs above the sawdust floor while rows of shadowed seating surround the arena. A skilled circus aerialist in a bright fitted costume sustains an equipment-free floor-acrobatics performance in the center of the ring, flowing through rolls, cartwheels, handsprings, balances, and controlled landings without using the trapeze or another prop. The spacious murmur of the big-top audience alternates with gentle wind stirring the overhead canopy."
+  },
+  {
+    "scenario_id": "P-0088",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic small black-box puppet theater contains a worn wooden stage, a miniature workbench, dark curtains, and warm practical spotlights, where two handcrafted wooden marionettes with contrasting costumes and silhouettes remain visibly controlled by taut strings: a red-jacketed wooden dancer with long articulated limbs continuously performs varied stepping, turning, bowing, and balancing motions across the stage while a blue-aproned wooden carpenter with a broad carved face simultaneously braces small wooden strips at the workbench and repeatedly guides a miniature hand plane over them. Wooden foot taps alternate with the dry scrape of the miniature hand plane, remaining distinct with little overlap."
+  },
+  {
+    "scenario_id": "P-0089",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic spacious indoor basketball practice court features a polished hardwood floor, two regulation hoops, bright overhead lighting, ball racks, and marked training lanes, where four individually recognizable people conduct a coordinated practice: a guard in a blue practice jersey continuously works on dribble combinations and perimeter pull-up shots, a tall forward in a white practice jersey repeats post footwork and close-range finishes, a rebounder in a red warm-up shirt gathers loose balls and feeds both players, and a coach in a black tracksuit moves along the sideline observing, signaling adjustments, and repositioning training markers. A ceiling-mounted ventilation unit produces a steady, prominent mechanical hum."
+  },
+  {
+    "scenario_id": "P-0090",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a bright indoor football equipment room rendered in a photorealistic style, a waist-high transparent ball-cleaning drum stands beside open storage racks, with realistic fluorescent reflections on the polished concrete floor. Inside the slowly rotating drum, four individually marked footballs—a white ball with bold black panels, a yellow ball with blue geometric markings, an orange ball with narrow charcoal stripes, and a silver ball with red angular accents—continuously tumble and roll together with their distinct markings visible as they circulate, accompanied by the motor's steady mechanical whir."
+  },
+  {
+    "scenario_id": "P-0091",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "An anime-style brightly lit indoor volleyball practice court has polished wood flooring, crisp boundary lines, padded walls, and an enclosed ball-return lane along one side, featuring a blue-and-yellow volleyball marked with a white star, a red-and-white volleyball marked with a black stripe, a compact orange volleyball serving machine, a taut regulation volleyball net with blue edge tape, and a curved transparent ball-return chute. A closed-loop automated serving drill runs continuously, keeping both volleyballs in steady cross-net motion in the same open-ended practice rhythm, while overlapping volleyball thumps, the serving-machine roller whir, and light return-chute clatter remain continuously audible."
+  },
+  {
+    "scenario_id": "P-0092",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic sunlit community baseball diamond features a groomed dirt infield, green outfield, chain-link backstop, dugout benches, and a bucket of baseballs beside home plate, where a baseball trainer in a navy practice uniform and cap works with three distinct trained dogs: a black-and-white border collie wearing a blue bandana, a golden retriever wearing a red harness, and a brown Australian shepherd wearing a green collar. The trainer continuously sends balls across the infield for the dogs to track, retrieve, and return to the bucket, directing each dog and keeping the shared fielding drill moving as sharp bat-to-ball cracks and rolling baseballs alternate with brief paw scrapes on dirt and occasional collar jingles."
+  },
+  {
+    "scenario_id": "P-0093",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic outdoor hard tennis court in a leafy public sports complex has a ball basket beside the baseline and training cones along the singles lines, while late-afternoon sunlight casts soft shadows across the surface. An adult tennis player in practical training clothes continuously practices controlled groundstrokes, footwork, and recoveries with a racket as an adult tennis coach in court attire uses a second racket to feed balls from across the net, observe technique, call brief adjustments, and gather nearby stray balls between feeds, keeping the rally work and coaching active together. Alternating breezes rustle the surrounding trees while intermittent bird calls carry across the courts."
+  },
+  {
+    "scenario_id": "P-0094",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "On an outdoor court in a leafy neighborhood park beneath warm daylight, two athletic anthropomorphic foxes—an agile red fox in a blue sports outfit and a focused silver fox in a yellow sports outfit, each holding a racket—play across a taut net amid painted boundary lines, a fence, and gently moving trees in an anime/cartoon style. They sustain a back-and-forth rally, continually tracking and returning the shuttlecock while adjusting their footwork and spacing in response to each other, as a light breeze rustles the surrounding trees and intermittent distant bird calls emerge in quieter gaps."
+  },
+  {
+    "scenario_id": "P-0095",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a bright, photorealistic indoor sports training hall with a regulation table, taut net, nonslip flooring, and soft daylight through high windows, an alert trained chimpanzee holding a lightweight paddle faces a patient athletic human coach in practical training clothes across the table. The coach and chimpanzee sustain a controlled rally across the net, continuously adjusting placement, reach, and return strength to keep the ball in play, while the coach's spoken encouragement and the chimpanzee's responsive calls overlap with the steady taps of the ball against the paddles and table."
+  },
+  {
+    "scenario_id": "P-0096",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a compact indoor combat-sports gym rendered in 3D/CG, with a roped training ring, a suspended double-end bag, high rain-streaked windows, and softly lit concrete walls, one adult athlete wearing padded gloves, hand wraps, shorts, and lightweight training shoes continuously works the bag from a guarded stance, striking it, slipping around its rebounds, and adjusting distance in a sustained exchange with the moving target. Gusts of rain against the high windows remain salient during circling intervals, alternating with crisp bag thuds during punching combinations."
+  },
+  {
+    "scenario_id": "P-0097",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A richly textured illustration depicts an open-air martial arts courtyard with worn stone paving, painted wooden pillars, and bamboo beyond the training space, where a focused martial artist in a dark blue training uniform and a poised martial artist in a muted red training uniform practice together with wooden staffs. They sustain a controlled staff-sparring exchange, continuously adjusting stance, distance, guard, and pressure in response to each other's strikes, parries, and feints, while the rhythmic clack of their two wooden practice staffs remains the sole salient sound."
+  },
+  {
+    "scenario_id": "P-0098",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a spacious modern gym with a loaded squat rack, rubber flooring, mirrored walls, and soft daylight filtering through high windows, a focused athlete in practical training clothes works with an attentive personal trainer standing close by in a photorealistic scene. The trainer continuously coaches and spots the athlete through repeated controlled barbell squats, adjusting the athlete's posture and offering guidance as the athlete maintains a steady training rhythm, while the trainer's brief spoken cues alternate with the athlete's exertion grunts amid occasional soft barbell clinks."
+  },
+  {
+    "scenario_id": "P-0099",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic scene, a sunlit riverside athletics track curves beside rows of leafy trees, with a low city skyline beyond the water and lane markings extending continuously around the circuit. Four individually recognizable athletes train simultaneously: a tall male distance runner in a blue singlet maintains a steady pace in the outer lane, a female sprinter in a red racing kit repeatedly drives hard along the straight, a stocky male runner in a green training shirt alternates controlled accelerations with easy jogging, and a female endurance runner wearing a yellow headband sustains rhythmic laps in an inside lane, all adjusting their spacing as they circulate, while steady wind through the trees, distant traffic, and birdsong overlap with rhythmic footfalls and breathing."
+  },
+  {
+    "scenario_id": "P-0100",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a sunlit outdoor athletics stadium rendered in detailed 3D CG, a red synthetic running track with crisp lane markings and a relay exchange zone runs beside tiered stands as two track athletes practice as a relay pair. The baton-carrying sprinter and the receiving sprinter in the exchange lane sustain a relay exchange drill, repeatedly matching pace through the marked zone while the leading runner extends the baton and the receiver reaches back to coordinate clean handoffs before they reset and continue, accompanied by steady stadium training music overlapping with their synchronized footfalls and rhythmic breathing."
+  },
+  {
+    "scenario_id": "P-0101",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a spacious indoor climbing gym rendered in a photorealistic style, soft daylight filters through high windows onto a tall textured training wall with color-coded holds and thick floor mats, where four distinct adult climbers in contrasting athletic clothing—a woman in a teal sleeveless top with a dark braided ponytail, a tall man in a rust-red shirt with short curly hair, a compact woman in a yellow shirt with a cropped haircut, and a bearded man in a gray tank top and blue climbing trousers—sustain a shared route-practice session. They take turns gripping and testing the same long traverse while the others spot closely and offer concise guidance about holds, balance, and body position, their distinct voices alternating in brief climbing cues and encouragement separated by quiet intervals of shoe and hand contact on the wall."
+  },
+  {
+    "scenario_id": "P-0102",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A painting-style illustration of an open concrete skatepark under warm late-afternoon light, with broad ramps, low rails, painted bowl walls, and a portable speaker beside the deck, features two individually recognizable skateboarders in contrasting outfits: one wearing a red helmet and dark green jacket, and the other wearing a blue beanie and ochre hoodie. They independently keep skating looping paths through the park, maintaining balance and momentum across the ramps and bowl, while music from the portable speaker alternates naturally with clear skateboard wheel rolls and scrapes during brief gaps in the track."
+  },
+  {
+    "scenario_id": "P-0103",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A spacious indoor ice rink with a smooth reflective surface, low perimeter boards, scattered training cones, and cool overhead arena lighting is shown in a photorealistic style, with a single adult figure skater in fitted training attire and ice skates. The skater continuously practices controlled edge work around the cones, tracing varied curves and turns while maintaining precise coordination among blade pressure, body lean, and the ice. The skater's breathy self-cues overlap with an off-rink coach's spoken corrections and the continuous scrape of blades on ice."
+  },
+  {
+    "scenario_id": "P-0104",
+    "track": "progressive",
+    "selected_attempt": 2,
+    "prompts": "A photorealistic sunlit outdoor velodrome curves around a smooth blue-gray track bordered by low safety rails, empty spectator seats, and gently moving trees beyond the arena, as a sleek enclosed pedal-powered racing velomobile with a visible pedaling cockpit continuously circles the track, maintaining its line against the banking while subtly adjusting its speed and steering through each curve. Steady electronic training music leads the soundtrack, with brief tire hum and chain whir emerging in the gaps between musical phrases."
+  },
+  {
+    "scenario_id": "P-0105",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A focused adult competitive swimmer in a cap, goggles, and streamlined training suit practices freestyle continuously in place in a compact indoor training pool with clear blue water, tiled walls, lane markings, and a built-in counter-current unit at one end, rendered in an anime/cartoon style. Against the steady current, the swimmer maintains a controlled rhythm while adjusting stroke force and body position to resist the flow, accompanied by the counter-current unit's steady mechanical motor hum."
+  },
+  {
+    "scenario_id": "P-0106",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A broad tropical reef break in warm late-afternoon light, rendered in a 3D/CG style, features rolling swells, translucent blue water, distant palms, and a stable open horizon. A weatherproof humanoid surfing robot with blue-and-white articulated plating and an adult surfer in a bright orange wetsuit continuously ride together on a tandem surfboard, coordinating their stance, weight shifts, and balance as they carve across recurring unbroken swells. A single steady instrumental surf-rock track plays throughout."
+  },
+  {
+    "scenario_id": "P-0107",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A calm outdoor rowing training basin stretches between low tree-lined banks, with marked lanes, gently rippling water, and soft daylight reflected across the surface, rendered in a photorealistic style. In the same training shell, a focused adult rowing athlete wearing fitted training gear maintains a steady rowing rhythm while a compact weatherproof coaching robot secured in the stern continuously observes stroke mechanics and provides responsive technique coaching; the athlete makes subtle adjustments to posture, timing, and oar handling as the robot's clear spoken coaching alternates naturally with the athlete's brief vocal acknowledgments and the recurring splash of the oars."
+  },
+  {
+    "scenario_id": "P-0108",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "Photorealistic outdoor archery range with marked shooting lanes, straw targets at fixed distances, trimmed grass, and a forested berm under soft daylight, where a white humanoid robot and a graphite humanoid robot, each equipped with a recurve bow, continuously practice in adjacent lanes by repeatedly nocking, drawing, aiming, and releasing arrows toward their own targets at a steady pace. Their bowstring snaps alternate, each followed by a separate arrow impact against a straw target."
+  },
+  {
+    "scenario_id": "P-0109",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic busy downtown boulevard runs between glass towers, older storefronts, signalized intersections, bus lanes, crosswalks, and curbside loading zones under clear afternoon light, as a well-used yellow city taxi with a roof sign keeps flowing through dense urban traffic. An attentive taxi driver in a dark jacket continuously steers, checks the mirrors, and responds to signals while a rear-seat passenger carrying a phone and small notebook follows the route on the phone and records passing landmarks in the notebook; a steady jazz track from the car radio remains salient, briefly yielding to occasional spoken navigation prompts."
+  },
+  {
+    "scenario_id": "P-0110",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In the rear seat of a moving family car, a medium-sized golden retriever wearing a red collar continuously watches and sniffs the sunlit multilane highway through a partly open side window as the car cruises steadily, with guardrails, distant traffic, and roadside trees flowing past in a photorealistic scene. The dog's panting and soft whines overlap with a talk-radio voice and the steady hum of tires on pavement."
+  },
+  {
+    "scenario_id": "P-0111",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "Inside a photorealistic yellow taxi moving through dense city streets in daylight, changing traffic and storefront reflections surround dashboard instruments, a mounted navigation display, and a running fare meter. An attentive taxi driver in everyday work clothes continuously steers and modulates the taxi through traffic, using the turn-signal lever as needed, while the already-running meter independently accumulates distance and fare throughout the ride. The repeated dry click of the driver's turn-signal lever remains the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0112",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic modern low-floor city bus travels continuously along a busy urban route with marked stops, glass shelters, curbside trees, and dense streets reflected across its windshield and windows. A compact humanoid transit robot with a brushed-metal shell, articulated hands, and a softly illuminated face display serves as the driver, continuously steering through traffic, monitoring mirrors and instruments, adjusting speed, and aligning the bus with stops while maintaining steady transit service, as urban traffic wash and passing tire hiss alternate with the engine's low hum and occasional pneumatic door sighs."
+  },
+  {
+    "scenario_id": "P-0113",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a painting and illustration style, a red fox commuter carrying a small canvas satchel rides and balances continuously inside a gently swaying above-ground subway car with illustrated blue seats, stainless-steel poles, route maps, overhead lights, and rain-softened city buildings sliding past the windows. The fox sustains an independent process of developing abstract sketches in a small notebook, while steady rain pattering against the subway-car windows remains the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0114",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a bright anime-style passenger train carriage rolling through a changing countryside, rows of upholstered seats, overhead luggage racks, broad windows, and a gently swaying aisle surround a neatly uniformed train attendant carrying a ticket punch. The attendant steadily works along the aisle, checking and punching tickets presented from the seats while maintaining brief, courteous exchanges with the surrounding travelers; these spoken exchanges alternate with intermittent carriage announcements as soft rail clatter fills the pauses."
+  },
+  {
+    "scenario_id": "P-0115",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "Inside a gently swaying city tram with wide windows, hanging straps, rows of seats, and animated streets sliding past outside, a single casually dressed adult passenger with a shoulder bag stands holding a hanging strap, continually balancing against the tram's motion and watching the passing city through the window, rendered in an anime/cartoon style. Metal wheel clatter, rhythmic rail-joint thumps, carriage rattling, and soft clothing rustle overlap continuously."
+  },
+  {
+    "scenario_id": "P-0116",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A painting-style illustration shows a tree-lined urban cycleway beside a canal, bordered by brick apartment buildings, railings, planted verges, and regularly spaced streetlamps under soft morning light. Two distinct adult bicycle commuters—one in a mustard-yellow jacket riding a dark city bicycle and one in a teal coat riding a silver city bicycle—continuously ride together along the flowing route, matching their pace and adjusting their spacing to remain alongside each other, while steady upbeat music plays from a small speaker mounted on one bicycle."
+  },
+  {
+    "scenario_id": "P-0117",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic view of a winding two-lane mountain highway through pine-covered slopes in clear afternoon light, bordered by guardrails and rocky shoulders with distant ridgelines, follows two helmeted motorcycle travelers sharing one touring bike: a rider in a dark touring jacket continuously guides the motorcycle along the curves while a passenger in a red riding jacket sits close behind, matching the rider's lean and holding on securely. Steady rock music from the motorcycle speakers overlaps with the engine's rumble and rushing wind as they travel together."
+  },
+  {
+    "scenario_id": "P-0118",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A helmeted adult rider wearing a light jacket and small backpack continuously guides a scooter along a broad, winding riverside path through a photorealistic urban waterfront lined with trees, railings, lamp posts, and distant buildings in soft afternoon light, maintaining balance and adjusting speed and steering to follow the route. The rider speaks clearly and continuously into a helmet-mounted microphone about the surroundings, with the commentary as the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0119",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic open passenger-ferry deck crosses a broad coastal channel in steady daylight, with metal railings, rows of fixed benches, a rippling wake, distant wooded islands, and a large blue-and-white weatherproof ferry route map in a metal frame beside the viewing area. Gathered around the prominent mounted map, an older woman in a yellow rain jacket, a young man wearing a green backpack, a middle-aged woman in a navy sweater, and an older man in a gray flat cap continuously consult it together, tracing the ferry's position and pointing between mapped landmarks and the passing coastline, while instrumental music from a deck speaker remains salient and isolated ferry-horn calls sound during brief pauses in the music."
+  },
+  {
+    "scenario_id": "P-0120",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic compact sailing yacht crosses a breezy open bay beneath broken afternoon clouds, with taut white sails, a weathered deck, rolling blue water, and a distant low coastline; aboard, a windbreaker-clad adult sailor continuously steers at the helm, monitors the wind, and trims the working lines as the yacht heels and rises over the chop, while a distinct, alert black-and-white border collie in a red flotation vest remains settled in the cockpit and passively rides with the yacht's motion. The ratcheting winch and creaking rigging remain prominent over the simultaneous sounds of rushing wind, snapping canvas, and water striking the hull."
+  },
+  {
+    "scenario_id": "P-0121",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic broad commercial harbor channel runs between concrete breakwaters, with calm gray-blue water, a nearby container-terminal berth, and a hazy coastal skyline beneath an overcast sky. A fully laden large blue-hulled container ship stacked with multicolored freight containers maintains steady forward transit through the channel, while a fully laden smaller red-hulled feeder container ship carrying orderly rows of freight containers remains securely berthed and shut down at the adjacent terminal. A steady coastal wind blows across the open harbor."
+  },
+  {
+    "scenario_id": "P-0122",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A wide airport apron beside a terminal is rendered in 3D / CG, with painted service lanes, cargo containers, safety cones, and a softly overcast sky. A mobile airport belt loader with a raised conveyor remains aligned with the open cargo hold of a parked passenger airliner, continuously carrying luggage upward into the aircraft while making small positioning adjustments to maintain a stable loading connection, accompanied by a steady mechanical whir and rhythmic roller clatter as the belt speed subtly varies."
+  },
+  {
+    "scenario_id": "P-0123",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic broad airport apron beside a terminal gate holds a parked passenger aircraft, marked service lanes, baggage carts, cargo containers, and ground-support equipment under bright overcast daylight. An airport ground operations coordinator wearing a reflective vest and hearing protection continuously marshals ground traffic around the aircraft with illuminated marshalling wands, while an automated baggage scanner in an adjacent service lane independently processes passing carts on its own repeating inspection cycle. Intermittent clacks of cargo-container latches alternate with the rolling rattles of baggage-cart wheels across the apron."
+  },
+  {
+    "scenario_id": "P-0124",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon style, a single blue-and-cream electric commuter train steadily rolls at low speed along the tracks of a covered regional station with long tiled platforms, overhead power lines, trackside signals, and colorful matching signage beneath soft afternoon light. Wheel-on-rail clatter overlaps with the undercarriage cooling fan and a ringing platform signal bell."
+  },
+  {
+    "scenario_id": "P-0125",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A spacious 3D CG freight terminal contains marked loading lanes, stacked shipping containers, and a long conveyor beside an open cargo bay. A single autonomous freight-handling robot with a wheeled base and articulated lifting arms continuously transfers freight crates between the conveyor and cargo bay, aligning, gripping, carrying, and placing each load in a steady handling cycle, while its electric drive whir alternates with brief hydraulic lifting sounds and crate-locking clunks."
+  },
+  {
+    "scenario_id": "P-0126",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A uniformed delivery courier follows an active route in a delivery van through a photorealistic mixed residential and commercial district with curbside loading spaces, varied storefronts, apartment entrances, traffic signals, and changing natural daylight. The courier continuously navigates traffic, relates each passing address to delivery information mounted near the dashboard, and maintains attentive control of the vehicle. Spoken address confirmations overlap with the steady engine hum and surrounding road traffic."
+  },
+  {
+    "scenario_id": "P-0127",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon style, two individually recognizable raccoons forage together beside the same long decaying log on a shaded woodland floor beneath broadleaf trees, surrounded by damp leaves, mossy roots, and ferns in dappled afternoon light: a large raccoon with a dark facial mask and ringed tail and a smaller raccoon with pale ear tips and a bushy ringed tail. They continuously work together to shift, roll, and inspect the log, alternating their grips while staying engaged with each other and their shared foraging task, as their claws scrape the bark, the log creaks, and the surrounding leaf litter crackles simultaneously."
+  },
+  {
+    "scenario_id": "P-0128",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic rain-soaked tropical forest trail winds beneath a dense green canopy, surrounded by broad leaves, tangled vines, mossy trunks, shallow puddles, and humid mist filling the understory. A field researcher in a hooded rain jacket carries compact survey equipment and steadily follows the muddy trail while scanning the surrounding vegetation, photographing plant specimens, and recording observations in a waterproof notebook as part of a continuous field survey, with steady rainfall pattering continuously across the canopy and broad leaves."
+  },
+  {
+    "scenario_id": "P-0129",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "An anime-style sheltered cove features pale sand, tide pools, weathered driftwood, dune grass, and a small bamboo wind chime hanging from a rocky overhang. A small rust-colored coastal fox with a white-tipped tail persistently gathers loose shells and pieces of seaweed from the tideline, carries them to a shallow sandy hollow, and rearranges them with its paws and muzzle, while soft waves wash onto the shore and a gentle wind-chime melody sounds in the pauses between them."
+  },
+  {
+    "scenario_id": "P-0130",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A richly textured illustration shows a broad sandy beach curving beside shallow turquoise water beneath a breezy, cloud-streaked sky, with a single weathered three-wheeled land yacht and its tall striped canvas sail. The land yacht rolls steadily across firm sand with its wheels tracking the shoreline, while the sail continuously billows and flexes in the sea breeze and the chassis rocks over ripples in the beach surface; the sailcloth snaps intermittently between stretches of wheel rattling and soft chassis creaks."
+  },
+  {
+    "scenario_id": "P-0131",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic broad, shallow river flows past a gravel bar beneath a forested bank, its clear current curling around wet stones in soft daylight. At the river’s edge, a field hydrologist in waterproof waders steadily operates a hand-cranked cable reel to lower, hold, and adjust a sampling probe in the flowing water, continuously responding to the current’s pull as the reel produces steady mechanical ratcheting and whirring."
+  },
+  {
+    "scenario_id": "P-0132",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A painting-style illustration of a broad freshwater lake bordered by dense reeds and lily pads under soft afternoon light, with gentle ripples spreading across the shallows. A compact amphibious survey robot with a low floating body and articulated sensor mast independently traces smooth, broad loops across the open water as its soft electric motor hums continuously, while a tall great blue heron with slate-blue plumage and a long pointed bill sleeps naturally on a nearby muddy islet."
+  },
+  {
+    "scenario_id": "P-0133",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic scene, a broad waterfall plunges over a dark rocky escarpment into a mist-filled basin surrounded by dense temperate forest, while a single adult nature presenter in practical waterproof outdoor clothing remains on a stable viewing ledge overlooking the cascade. The presenter continuously delivers calm, unscripted observations about the waterfall and surrounding landscape, with clear ongoing speech continuously overlapping the powerful roar of falling water."
+  },
+  {
+    "scenario_id": "P-0134",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic scene shows a steep granite mountainside rising above a deep alpine valley, with fractured ledges, sparse lichen, and thin clouds drifting past the exposed rock face, where two roped mountaineers sustain a coordinated ascent: a helmeted lead climber wearing a harness and carrying climbing hardware tests holds and places protection while a second helmeted mountaineer secured below continuously manages the shared rope and maintains the belay with a belay device. Metal hardware clinks overlap with the rope sliding through the belay device and boots scraping against the granite."
+  },
+  {
+    "scenario_id": "P-0135",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic broad sandstone canyon floor lies beneath towering red-orange walls, with layered outcrops, scattered boulders, dry scrub, and shifting afternoon light. Working separately within the canyon, a field geologist in a sun hat continuously examines exposed strata, measures rock surfaces, and records observations in a notebook while carrying a rock hammer, as a landscape photographer with an equipment pack simultaneously adjusts a tripod-mounted camera, composes views of the canyon walls, and captures images while light moves across the rock; rock-hammer taps and notebook scratches alternate with distinct camera shutter clicks and tripod adjustment clacks."
+  },
+  {
+    "scenario_id": "P-0136",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A broad 3D-rendered grassland stretches beneath a bright, cloud-dappled sky, with tall green blades rippling around the stone base of a tall, weathered metal Aeolian harp sculpture with taut strings and curved vanes. Anchored to its base, the wind-driven harp responds continuously to shifting prairie gusts pressing against its vanes and setting its strings vibrating, producing sustained musical harp tones between passing gusts while soft grass rustles in the quieter gaps."
+  },
+  {
+    "scenario_id": "P-0137",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A detailed 3D tidal mangrove wetland at low tide features arching roots, winding brackish channels, rippled mudflats, scattered shell beds, and shafts of warm light beneath the canopy. A stationary wetland-acoustics robot with a compact acoustic sensor crown and articulated head and torso performs a sustained acoustic-calibration routine, producing evolving synthesized tonal and vocal phrases as small rhythmic head and torso motions follow their changing pitch and cadence, while a dark-brown smooth-coated otter rests comfortably on a sun-warmed broad mangrove root, breathing slowly and occasionally shifting its relaxed posture. The robot’s phrases overlap with natural kingfisher calls, frog choruses, and distant macaque whoops beneath the canopy."
+  },
+  {
+    "scenario_id": "P-0138",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic sunlit desert basin of ochre dunes and exposed sandstone lies beneath a clear blue sky, with sparse dry shrubs and wind-sculpted ripples extending toward distant mesas. Two individually recognizable desert field researchers—one wearing a beige headscarf and canvas work clothes, the other wearing a broad-brimmed hat and a faded blue overshirt—work together around a partially exposed fossil bed, continuously brushing away loose sand and coordinating their careful handling of the fragile remains as a steady desert wind sweeps across the open basin."
+  },
+  {
+    "scenario_id": "P-0139",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic broad high-altitude snowfield stretches beneath an overcast sky, with wind-sculpted drifts surrounding a small exposed patch of frozen ground. Two weathered wooden prayer wheels stand apart in the snow: a tall red-painted wheel rimmed with frost rotates slowly and steadily on its own, while a smaller dark wooden wheel dusted with fresh snow remains completely stationary beside it. A single distant human voice sustains a low rhythmic chant."
+  },
+  {
+    "scenario_id": "P-0140",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic broad blue-white glacier stretches between steep dark mountain walls beneath a pale overcast sky, its surface marked by wind-carved snow, translucent crevasses, and scattered ice ridges. A glaciologist in a red insulated field suit and reflective goggles continuously pilots a compact orange tracked glacier survey vehicle with a roof-mounted antenna across the uneven ice, steadily towing a ground-penetrating radar sled along the glacier surface as a solitary ambient instrumental track plays continuously."
+  },
+  {
+    "scenario_id": "P-0141",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic vast limestone cave surrounds a shallow underground stream, with damp mineral walls, clustered stalactites, shadowed ledges, and faint daylight filtering through a distant opening, where a dense cave community of four individually recognizable animals includes a large horseshoe bat with a pale chest patch, a smaller bent-wing bat with a torn left ear, a mottled cave salamander, and a long-legged cave cricket with banded hind legs. The horseshoe bat repeatedly circles beneath the high vault while the bent-wing bat alternates between clinging to nearby rock and making short flights; below them, the salamander steadily searches along the wet stream edge as the cricket climbs across the mineral wall and probes narrow crevices, while echoing water drips and the flowing underground stream overlap continuously with soft wingbeats and intermittent insect stridulation."
+  },
+  {
+    "scenario_id": "P-0142",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A lone volcanologist wearing a protective helmet, respirator, and weathered heat-resistant field suit carefully and unhurriedly traverses a broad volcanic caldera of black basalt shelves, fractured lava crust, drifting steam, and sparse mineral-stained ground surrounding a compact automated monitoring station beneath an overcast sky, continuously adjusting their foot placement over the uneven basalt in a 3D/CG style. The station's generator hum periodically yields to bursts of mechanical gear chatter from its automated sampler."
+  },
+  {
+    "scenario_id": "P-0143",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic windswept alpine campsite lies beneath dark clouds, with heavy rain sweeping across soaked ground and a large canvas shelter straining against its guy lines. Four distinct adult hikers in rain gear—a tall hiker in a yellow waterproof jacket, a shorter hiker in a red hooded poncho, a bearded hiker in a dark green rain shell, and a hiker in a blue jacket and gray knit cap—continuously coordinate to keep their shared shelter secured, calling instructions while holding the canvas taut, adjusting guy-line tension, and reinforcing loosened stakes as the wind and rain keep testing their work; their shouted coordination is prominent during lulls between roaring wind gusts and intermittent thunder."
+  },
+  {
+    "scenario_id": "P-0144",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic secluded marshland wildlife habitat, shallow water, dense reed beds, muddy banks, and scattered willow trees surround a low wooden observation platform under soft overcast daylight. A lone wetland conservationist wearing chest waders, practical field clothing, and carrying a field notebook steadily inspects and maintains a fixed wildlife monitoring station, cleaning its housing, checking its mount, adjusting its position toward the habitat, and recording observations while remaining focused on the same equipment, as a steady marsh breeze continuously rustles through the surrounding reeds."
+  },
+  {
+    "scenario_id": "P-0145",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic misty fantasy village of moss-covered stone cottages, crooked timber shops, hanging lanterns, and winding cobblestone lanes surrounds a market square beneath distant castle towers, while a self-propelled enchanted wooden delivery cart with brass fittings and softly glowing runes continuously follows the lanes, using its articulated brass arms to collect glowing parcels from roadside racks and secure them in its cargo bed. A clear enchanted flute melody is punctuated during the cart's pauses by isolated wooden wheel creaks."
+  },
+  {
+    "scenario_id": "P-0146",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic view of a vast torchlit hall inside an ancient fantasy castle, with rain-streaked lancet windows, carved stone arches, glowing ward runes, and a hovering floor plan above a long oak table, where a solitary human castle warden in weathered ceremonial robes continuously circles the hall on patrol while keeping the floor plan aligned with the surrounding corridors and sustaining a stream of precise hand gestures that refresh fading ward runes along the arches. Wind sighs through the arrow slits, briefly giving way to isolated rolls of distant thunder."
+  },
+  {
+    "scenario_id": "P-0147",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a 3D/CG enchanted forest, a solitary forest mage in a weathered green robe continuously tends a moss-covered clearing ringed by immense twisting trees, glowing mushrooms, drifting motes, shallow root-fed pools, and clusters of suspended glass charms. The mage simultaneously stirs luminous mixtures in a stone mortar, traces hovering runes with a wooden staff, and operates a foot-powered bellows to regulate the glow of nearby magical plants as the forest subtly responds, while rhythmic mortar grinding, wooden staff taps, and soft bellows creaks continuously overlap with faint glass-charm clinks."
+  },
+  {
+    "scenario_id": "P-0148",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A painting-style illustration shows a sprawling enchanted garden surrounding a brass irrigation apparatus amid luminous flowers, curling vines, mossy stone paths, and gently hovering motes of light. Two human gardeners in practical fantasy workwear continuously collaborate to guide the mechanical irrigation flow through the living flower bed: one in a green apron adjusts the brass controls and valves while the other in a blue coat tends the same bed and redirects the articulated nozzles around the shifting vines, as the pump's rhythmic clanking alternates with the crisp ratcheting of the nozzles."
+  },
+  {
+    "scenario_id": "P-0149",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic, spacious science-fiction laboratory features a circular containment platform, transparent instrument consoles, articulated sensor arms, and cool white task lighting reflected across brushed metal surfaces. Four human researchers—a lead researcher in a white protective suit with blue trim, a sensor specialist in a charcoal protective suit with amber trim, a containment technician in a silver protective suit with red trim, and a systems researcher in a navy protective suit with green trim—continuously collaborate to calibrate the containment platform around a hovering crystalline specimen, coordinating adjustments across the surrounding controls while watching the shared field response, as soft control taps alternate with brief mechanical clicks from the sensor arms over a low laboratory ventilation hum."
+  },
+  {
+    "scenario_id": "P-0150",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon-style spacious orbital station conservatory under stable artificial gravity, curved observation windows overlook a luminous nebula amid softly glowing floor panels, floating holographic controls, and a wall-mounted speaker array. Four station residents—a young woman in a blue station uniform with silver braided hair, a tall man in an orange maintenance suit with round glasses, a teenage boy in a green flight jacket with dark curly hair, and an older woman in a white research coat with a violet headscarf—continuously collaborate around a shared holographic music console, each maintaining a distinct control region while watching the others' cues and adjusting their inputs to keep the evolving composition coherent. An evolving ambient electronic composition plays continuously from the single wall-mounted speaker array."
+  },
+  {
+    "scenario_id": "P-0151",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A photorealistic wind-carved alien basin stretches beneath a pale ringed planet, dotted with black basalt fins, luminous ground moss, drifting mineral dust, and a slowly pulsing geothermal vent. A silver hovering probe with three articulated arms maintains a smooth exploratory flight in wide arcs between the fins, gently rising and descending above the moss, while a tall white bipedal survey robot with a blue optical visor, a compact orange six-wheeled sampling robot, and a dark quadrupedal sensor robot with a mast antenna remain in low-power standby at fixed safe positions. Low alien wind moves through the basalt fins, with intermittent geothermal hisses punctuating quieter lulls."
+  },
+  {
+    "scenario_id": "P-0152",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a 3D/CG scene, a neon-lit maintenance terrace overlooks layered aerial streets, holographic signs, and elevated transit lanes in a vast futuristic city. Two human transit technicians, a senior technician in a blue reflective utility suit and a junior technician in an orange reflective utility suit, continuously work together to inspect and calibrate a hovering transit-signal mechanism, with one manipulating its exposed controls while the other watches diagnostic projections and guides each adjustment as the mechanism produces a steady pattern of motorized whirs and precise actuator clicks."
+  },
+  {
+    "scenario_id": "P-0153",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic underwater city, a vast submerged civic archive occupies a glass-domed hall with coral-inlaid shelving, drifting luminous signage, and distant towers visible through the clear walls. One large bioluminescent octopus archivist with individually patterned arms continuously examines, sorts, and returns engraved memory shells among the coral racks, manipulating each shell with coordinated arms while remaining engaged with the collection and producing a steady stream of low, resonant communicative vocalizations."
+  },
+  {
+    "scenario_id": "P-0154",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "A vast photorealistic archipelago of moss-covered islands floats above a sunlit cloud sea, linked by swaying rope bridges and surrounded by waterfalls that dissolve into mist. Beside a bridge, a weathered brass courier robot with a glowing blue face panel continuously sorts and secures parcels while exchanging route observations with a human sky shepherd in layered windproof robes, who tends a large white manta-like cloud grazer with indigo markings and a smaller rust-colored cloud grazer with translucent fins as they circle independently through the island vegetation and feed on drifting seed plumes; the robot's resonant speech and the shepherd's overlapping calls remain prominent over the creatures' simultaneous low trills."
+  },
+  {
+    "scenario_id": "P-0155",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In an anime/cartoon style, a sprawling sky-island sanctuary surrounds a mossy stone courtyard with crystal-fed pools, flowering vines, sheltered cliffside nests, and warm lanterns glowing beneath a lavender dusk, where a young habitat keeper in a practical blue tunic cares for a tawny gryphon with a white-feathered head and a small emerald winged dragon. The keeper continuously tends feeding trays, checks nest bedding, and speaks calmly while moving around the sanctuary as the gryphon independently grooms its feathers and rearranges branches in its nest, while the dragon circles between perches, drinks from the pools, and investigates the glowing crystals; the keeper's gentle spoken guidance alternates with the gryphon's soft chirps and the dragon's low calls."
+  },
+  {
+    "scenario_id": "P-0156",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a vast painting-style robot metropolis, a vaulted civic plaza is filled with brass walkways, articulated street fixtures, automated kiosks, streams of anonymous service machines, and layered industrial architecture. A lone human visitor in a pale travel coat walks steadily through the sprawling plaza, continuously taking in the surrounding robot society as overlapping servo whirs, conveyor clatter, and the deep hum of transit machinery persist throughout."
+  },
+  {
+    "scenario_id": "P-0157",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic, vast, timeworn mansion parlor beneath a vaulted ceiling, peeling damask walls, dusty floorboards, tall rain-streaked windows, and dim firelight casting lifelike shadows across antique furnishings surround four sentient antiques with distinct faces and weathered details: an ornate grandfather clock whose carved wooden face subtly forms expressive features, a tarnished silver candelabrum with animated waxen faces beneath its flames, a cracked oil portrait whose painted noblewoman moves within the frame, and an aged grand piano with ivory keys that flex like a speaking mouth. The grandfather clock continuously delivers a single unaccompanied whispered recitation through the subtle movement of its carved face while the candelabrum, portrait, and piano remain naturally dormant and motionless elsewhere in the parlor, and its solo whispering alternates with its own steady ticking with little overlap."
+  },
+  {
+    "scenario_id": "P-0158",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic scene, an endless elevated roadway curves above a moonlit ocean of clouds beneath translucent crystal arches and past floating islands draped with luminous vines and three broad crystalline roadside alcoves, with four distinct, clearly recognizable dreamlike vehicles: a polished silver tram with panoramic windows, a crimson vintage convertible with pearl-white seats, a compact amber bus with softly glowing windows, and a black touring motorcycle with chrome trim. The silver tram independently maintains steady forward motion along the suspended roadway while the convertible, bus, and motorcycle remain securely parked, powered down, and separated among the three luminous alcoves; a steady high-altitude wind subsides intermittently for isolated rolls of distant thunder."
+  },
+  {
+    "scenario_id": "P-0159",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic vast white salt basin beneath a pale sky, shallow reflective channels wind among towering translucent black-stone arches bent at impossible angles. Four individually recognizable long-legged antelope-like creatures inhabit the basin: a tall creature with a glossy obsidian coat and spiraled ivory horns maintains an unhurried lope along the channels and beneath the arches, while a smaller translucent-amber creature with one chipped horn, a broad pale-crystalline creature with dark crescent markings, and a slender smoky-quartz creature with asymmetrical silver horns sleep naturally in separate shallow hollows; the obsidian creature’s steady hoofbeats remain the sole prominent sound."
+  },
+  {
+    "scenario_id": "P-0160",
+    "track": "progressive",
+    "selected_attempt": 1,
+    "prompts": "In a photorealistic scene, a weathered settlement occupies a sun-bleached highway interchange beneath a dusty open sky, with patched sheet-metal shelters, rope bridges, rain collectors, and faded fabric barriers enclosed by walls of stacked vehicle panels. Its shared music installation comprises two large salvaged musical machines built from recognizable industrial remnants: a wind-driven pipe organ assembled from copper tubes, ducts, and a broad patched turbine, and a nearby bell tower mechanism made from suspended brake drums and a bladed wind rotor. The machines continuously harness the variable desert wind, their rotors, belts, valves, and suspended parts moving steadily with each gust, while a prominent wheezing pipe-organ melody is punctuated mainly in the pauses between its phrases by brief metallic bell tones."
+  }
+]

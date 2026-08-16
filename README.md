@@ -17,19 +17,31 @@ playwright install chromium
 
 ---
 
-## 2. 登录（只需做一次）
+## 2. 登录
 
 Happy Oyster 和 PixVerse 需要登录。**Odyssey 无需登录**，可跳过本步。
 
 ### 2.1 浏览器登录态
 
 ```bash
-python scripts/login_happyoyster.py   # 登录态 → ~/.workbuddy/browser_data
-python scripts/login_happyoyster_global.py  # 国际站 → 独立 profile
+python scripts/login_happyoyster_global.py  # 仅用于国际站手工调试
 python scripts/login_pixverse.py      # 登录态 → ~/.workbuddy/browser_data_pixverse
 ```
 
-脚本打开浏览器 → 手动登录 → 终端按回车关闭。之后 `run` / `batch` 自动复用。
+Happy Oyster 批处理不复用手工登录账号。请复制
+`examples/happyoyster_accounts.example.json` 为 `happyoyster_accounts.json`，
+按顺序填写邮箱和密码。每个账号最多成功生成一个视频；每生成
+一个视频后脚本会退出登录，并切换到下一个账号。
+账号文件和使用状态文件均已
+加入 `.gitignore`。
+
+国际站登录采用人工监督模式：用户负责从 Happy Oyster 页面进入 Google
+登录页，脚本只负责填写当前账号池中的邮箱和密码。邮箱与密码步骤均执行
+“等待 2 秒 → 输入 → 等待 2 秒 → 下一步”；Google 出现图片验证时由用户
+手工完成，脚本会继续等待而不会消耗账号。登录失败的账号可在
+`.happyoyster_account_usage.json` 中标记为耗尽，后续自动领取下一个账号。
+
+PixVerse 登录脚本会打开浏览器；手动登录后回到终端按回车保存登录态。
 
 PixVerse World 必须从 `world.pixverse.video/generate/` 页面自己的 **Log in**
 入口登录；`app.pixverse.ai/login` 是另一套产品界面。
@@ -129,40 +141,93 @@ promptchoreo batch examples/manifest_pixverse.json --cdp http://127.0.0.1:9222
 ## 5. StreamAVBench 批量运行
 
 ```bash
-# Pilot（默认）
-python scripts/bench_runner_happyoyster.py --phase pilot
-python scripts/bench_runner_happyoyster_global.py --phase pilot  # 国际站
+# Pilot（默认；Happy Oyster 统一使用国际站和 180s）
+python scripts/bench_runner_happyoyster.py --phase pilot --180
+
+# Test（从 pilot 取 3 条，Track B 优先）
+python scripts/bench_runner_happyoyster.py --phase test --180
 python scripts/bench_runner_odyssey.py --phase pilot
 python scripts/bench_runner.py --phase pilot          # PixVerse
 
+# 新数据集（new_bench/*.json 更新后，先重新生成 YAML）
+python scripts/new_bench_prep.py
+
+# Progressive：160 条，每条只提交 initial prompt，连续生成 180s
+python scripts/bench_runner_happyoyster.py --phase progressive --180
+python scripts/bench_runner.py --phase progressive --180       # PixVerse
+
+# Interactive：160 条，每条生成 180s，在 30/60/90/120/150s 注入 Prompt
+python scripts/bench_runner_happyoyster.py --phase interactive --180
+python scripts/bench_runner.py --phase interactive --180       # PixVerse
+
+# 一次运行上述两组新数据（共 320 条；默认按打乱后的同编号 I、P 配对运行）
+python scripts/bench_runner_happyoyster.py --phase new --180
+python scripts/bench_runner.py --phase new --180                # PixVerse
+
+# 如需换一套可复现的乱序，只需指定另一个整数种子
+python scripts/bench_runner_happyoyster.py --phase new --180 --shuffle-seed 42
+python scripts/bench_runner.py --phase new --180 --shuffle-seed 42
+
 # Remain
-python scripts/bench_runner_happyoyster.py --phase remain
-python scripts/bench_runner_happyoyster_global.py --phase remain  # 国际站
+python scripts/bench_runner_happyoyster.py --phase remain --180
 python scripts/bench_runner_odyssey.py --phase remain
 python scripts/bench_runner.py --phase remain
 
-# Remain 按时长筛选（--30 / --60 / --120 三选一，仍写入原 remain 目录）
-python scripts/bench_runner_happyoyster.py --phase remain --120
-python scripts/bench_runner_happyoyster_global.py --phase remain --120
+# 其他站点仍可按旧数据集时长筛选
 python scripts/bench_runner_odyssey.py --phase remain --120
 python scripts/bench_runner_odyssey.py --phase remain --30+60  # Odyssey 同时运行 30s 和 60s
 python scripts/bench_runner.py --phase remain --120
 
 # 单个 job（使用 YAML 文件名格式）
+python scripts/bench_runner_happyoyster.py --phase remain --180 --job EXAMPLE_JOB_SPLIT
 python scripts/bench_runner.py --phase remain --job EXAMPLE_JOB_SPLIT
 ```
 
 成功 job 会自动跳过。结果分别保存在：
 
 ```text
-outputs/happyoyster/<phase>/
 outputs/happyoyster_global/<phase>/
 outputs/odyssey/<phase>/
 outputs/pixverse_r1/<phase>/
 ```
 
-任务来源为 `StreamAVBench_closed_source_web_package/.../*_jobs.json`，实际 prompt
-配置位于 `bench_yamls/`。
+旧任务来源为 `StreamAVBench_closed_source_web_package/.../*_jobs.json`。新任务来源为
+`new_bench/progressive.json` 和 `new_bench/interactive.json`，由
+`scripts/new_bench_prep.py` 转换；实际 prompt 配置统一位于 `bench_yamls/`。
+新数据集使用固定随机种子打乱难度顺序。`new` phase 会按
+`I-同编号、P-同编号` 交替运行，并将准确顺序写入
+`outputs/<model>/run_lists/`。PixVerse 继续复用
+`browser_data_pixverse` 的单一登录态，不使用 Happy Oyster 的账号轮换机制。
+
+### 5.1 Happy Oyster 国际站运行规则
+
+- 所有任务统一生成 180 秒视频。
+- Progressive（原 Track A）只提交 initial prompt，中间不注入。
+- Interactive（原 Track B）在录屏开始后的 30、60、90、120、150 秒注入。
+- 外部录屏仅在屏幕中可见的 `REC` 计时器开始递增后启动；所有注入偏移均以
+  外部录屏的 monotonic 零点为准，不使用页面计时器调度。
+- 每个账号只用于一个成功视频；任务结束后自动退出，并换用下一个账号。
+- 首页或 Directing 页面发生暂时网络断开时自动重试，不会因一次
+  `ERR_CONNECTION_CLOSED` 立即终止。
+- 检测到 `Oops: Something went wrong` 或
+  `This scene can't be played right now` 时，立即停止当前录屏、写入失败原因和
+  `skip_job.json`，退出当前账号后继续下一个任务，不中断整批。重启时会同时
+  扫描当前 manifest 和历史 `attempt_*`，旧格式 Oops 失败也不会再次执行。
+- 最终视频保留完整录屏画面，不做空间裁剪。允许浏览器客户区边框造成的少量
+  分辨率差异（每条边最多 32 像素），例如 `2544x1432`。
+
+每个任务的输出目录格式保持一致：
+
+```text
+outputs/happyoyster_global/<phase>/<job_id>/
+├── final_video.mp4       # 成功结果
+├── run_manifest.json     # 状态、时间、分辨率和失败原因
+├── prompt_events.jsonl   # initial prompt 与注入提交时间
+├── chunk_events.jsonl    # 原生 chunk 可观察性记录
+├── chunks/
+├── attempt_*/            # 被重试前归档的历史结果
+└── skip_job.json         # 不可重试失败；存在时后续直接跳过
+```
 
 ---
 
@@ -184,6 +249,38 @@ Odyssey/PixVerse 的手工裁剪参数可在脚本顶部调整，或直接传入
 python scripts/trim_odyssey.py --crop 940:522:810:434
 python scripts/trim_pixverse.py --ss 1 --to 120   # 时间裁剪
 ```
+
+---
+
+## 7. 下载网站生成的视频
+
+各网站使用独立下载脚本。Happy Oyster 下载器读取“我的视频”的分页数据，
+优先使用站点官方下载，失败时回退到作品的 CDN 成片：
+
+```bash
+python scripts/download_ho_videos.py --dry-run          # 只查看待下载文件
+python scripts/download_ho_videos.py                    # 下载尚未下载的作品
+python scripts/download_ho_videos.py --date 2026.07.26  # 按日期筛选
+python scripts/download_ho_videos.py --source direct    # 跳过按钮，直接下载 CDN 成片
+python scripts/download_ho_videos.py --site global      # 国际站历史账户
+```
+
+国内站默认输出到 `outputs/downloads/happyoyster/`，下载记录保存在
+`.downloaded_ho.json`。登录态失效时运行 `python scripts/login_happyoyster.py`；
+国际站使用 `python scripts/login_happyoyster_global.py`。
+
+PixVerse 下载器读取 Mine 的作品列表数据，不依赖页面坐标或 Download 按钮：
+
+```bash
+python scripts/download_pv_videos.py --dry-run          # 只查看待下载文件
+python scripts/download_pv_videos.py                    # 下载每个 World 的主视频
+python scripts/download_pv_videos.py --date 2026.07.19  # 按日期筛选
+python scripts/download_pv_videos.py --all-sessions     # 同时下载全部 session 视频
+```
+
+默认输出到 `outputs/downloads/pixverse/`，下载记录保存在
+`.downloaded_pv.json`。如果提示登录态失效，先重新运行
+`python scripts/login_pixverse.py`。
 
 ---
 

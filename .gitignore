@@ -20,5 +20,9 @@ venv/
 env/
 *.log
 .downloaded_*.json
+happyoyster_accounts*.json
+!examples/happyoyster_accounts.example.json
+accounts.txt
+.happyoyster_account_usage.json*
 StreamAVBench_closed_source_web_package/
 formal_120s_subset_60cases/

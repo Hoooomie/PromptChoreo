@@ -1,5 +1,10 @@
-"""Benchmark 批量运行器（进程内循环，浏览器不关）。"""
-import argparse, asyncio, json, os, shutil, sys, time
+"""PixVerse benchmark 批量运行器（进程内循环，浏览器不关）。
+
+新 benchmark 的 Progressive / Interactive 输入由
+``scripts/new_bench_prep.py`` 生成；PixVerse 继续复用同一个登录 profile，
+不做账号轮换。
+"""
+import argparse, asyncio, json, os, random, re, shutil, sys, time
 from datetime import datetime, timezone
 
 import yaml
@@ -24,6 +29,11 @@ SUBSET_YAML_DIR = os.path.join(YAML_DIR, "formal_120s_subset_60cases")
 OUTPUT_BASE = "outputs"
 MODEL_ID = "pixverse_r1"
 VIDEO_SRC = "outputs/video/pv"
+TARGET_DURATION_S = 180
+DEFAULT_NEW_BENCH_SHUFFLE_SEED = 20260816
+NEW_BENCH_FILENAME_RE = re.compile(
+    r"^(?P<track>[IP])-(?P<index>\d+)_(?P=track)-180\.yaml$"
+)
 
 def load_job_source(phase, job_id):
     path = os.path.join(BENCH_DIR, f"{phase}_jobs.json")
@@ -36,6 +46,60 @@ def load_job_source(phase, job_id):
 
 def yaml_to_job_id(filename):
     return filename.replace(".yaml", "").replace("_", ":", 1)
+
+
+def build_prompt_inputs(job, raw):
+    """Build adapter inputs from either legacy job JSON or new-bench YAML."""
+    prompt_schedule = list(job.get("prompt_schedule", []) if job else [])
+    if prompt_schedule:
+        initial_prompt = next(
+            (
+                prompt.get("text", "")
+                for prompt in prompt_schedule
+                if prompt.get("role") == "initial"
+            ),
+            raw.get("initial_prompt", ""),
+        )
+        inject_events = [
+            {
+                "time": float(prompt["activation_media_time_s"]),
+                "prompt": prompt.get("text", ""),
+                "prompt_id": prompt.get("prompt_id", ""),
+                "role": prompt.get("role", "update"),
+            }
+            for prompt in prompt_schedule
+            if prompt.get("role") != "initial"
+        ]
+        return initial_prompt, prompt_schedule, inject_events
+
+    initial_prompt = raw.get("initial_prompt", "")
+    inject_events = [
+        {
+            "time": float(event.get("time", 0)),
+            "prompt": event.get("prompt", ""),
+            "prompt_id": event.get("prompt_id", ""),
+            "role": event.get("role", "update"),
+        }
+        for event in (raw.get("events") or [])
+        if float(event.get("time", 0) or 0) > 0
+    ]
+    prompt_schedule = [
+        {
+            "activation_media_time_s": 0.0,
+            "text": initial_prompt,
+            "prompt_id": "",
+            "role": "initial",
+        }
+    ] + [
+        {
+            "activation_media_time_s": event["time"],
+            "text": event["prompt"],
+            "prompt_id": event["prompt_id"],
+            "role": event["role"],
+        }
+        for event in inject_events
+    ]
+    return initial_prompt, prompt_schedule, inject_events
 
 
 def prepare_attempt(out_dir):
@@ -179,21 +243,17 @@ async def run_one(
     with open(yaml_path, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
 
-    # 从 job source 的 prompt_schedule 构建注入事件（带 prompt_id/role）
-    prompt_schedule = job.get("prompt_schedule", []) if job else []
-    inject_events = []
-    for ps in prompt_schedule:
-        if ps.get("role") == "initial":
-            continue  # initial prompt 由 adapter 在 _start_session 处理
-        inject_events.append({
-            "time": ps["activation_media_time_s"],
-            "prompt": ps["text"],
-            "prompt_id": ps.get("prompt_id", ""),
-            "role": ps.get("role", "update"),
-        })
+    initial_prompt, prompt_schedule, inject_events = build_prompt_inputs(
+        job, raw
+    )
+    if inject_events:
+        print(
+            "  [PLAN] Injections: "
+            + ", ".join(f"{event['time']:.0f}s" for event in inject_events)
+        )
 
     config = {
-        "initial_prompt": raw.get("initial_prompt", ""),
+        "initial_prompt": initial_prompt,
         "_inject_events": inject_events,
         "_prompt_schedule": prompt_schedule,
         "_end_delay": float(raw.get("end_delay", 0)),
@@ -271,42 +331,165 @@ async def run_one(
             for entry in log:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
+def order_new_bench_files(files, phase, seed):
+    """Return a reproducible new-benchmark order.
+
+    Combined runs keep matching Interactive / Progressive scenarios adjacent,
+    in I-then-P order, while shuffling scenario numbers.
+    """
+    files = sorted(files)
+    rng = random.Random(seed)
+    if phase in ("progressive", "interactive"):
+        rng.shuffle(files)
+        return files
+    if phase != "new":
+        return files
+
+    pairs = {}
+    for filename in files:
+        match = NEW_BENCH_FILENAME_RE.fullmatch(filename)
+        if match is None:
+            raise ValueError(f"invalid new benchmark YAML filename: {filename}")
+        index = match.group("index")
+        track = match.group("track")
+        if track in pairs.setdefault(index, {}):
+            raise ValueError(f"duplicate {track} YAML for scenario {index}")
+        pairs[index][track] = filename
+
+    incomplete = [
+        index for index, pair in pairs.items() if set(pair) != {"I", "P"}
+    ]
+    if incomplete:
+        raise ValueError(
+            "new benchmark I/P pair is incomplete: "
+            + ", ".join(sorted(incomplete, key=int))
+        )
+
+    indices = sorted(pairs, key=int)
+    rng.shuffle(indices)
+    return [
+        pairs[index][track]
+        for index in indices
+        for track in ("I", "P")
+    ]
+
+
+def new_bench_job(filename):
+    """Derive manifest metadata for a generated new-benchmark YAML file."""
+    job_id = yaml_to_job_id(filename)
+    case_id, _, split = job_id.partition(":")
+    if case_id.startswith("P-") and split == "P-180":
+        track = "progressive"
+    elif case_id.startswith("I-") and split == "I-180":
+        track = "interactive"
+    else:
+        return None
+    return {
+        "job_id": job_id,
+        "case_id": case_id,
+        "track": track,
+        "split": split,
+        "phase": track,
+        "duration_s": TARGET_DURATION_S,
+    }
+
+
+def select_files(args):
+    files = sorted(
+        filename
+        for filename in os.listdir(YAML_DIR)
+        if filename.endswith(".yaml")
+    )
+    if args.job:
+        files = [filename for filename in files if args.job in filename]
+
+    if args.phase in ("pilot", "remain"):
+        source = os.path.join(BENCH_DIR, f"{args.phase}_jobs.json")
+        with open(source, encoding="utf-8") as f:
+            phase_ids = {job["job_id"] for job in json.load(f)["jobs"]}
+        files = [
+            filename
+            for filename in files
+            if yaml_to_job_id(filename) in phase_ids
+        ]
+    elif args.phase == "progressive":
+        files = [filename for filename in files if filename.startswith("P-")]
+    elif args.phase == "interactive":
+        files = [filename for filename in files if filename.startswith("I-")]
+    elif args.phase == "new":
+        files = [
+            filename
+            for filename in files
+            if filename.startswith(("I-", "P-"))
+        ]
+
+    if args.phase in ("progressive", "interactive", "new") and not args.job:
+        files = order_new_bench_files(
+            files,
+            args.phase,
+            getattr(args, "shuffle_seed", DEFAULT_NEW_BENCH_SHUFFLE_SEED),
+        )
+    return files
+
+
 def select_work_items(args):
     if args.subset:
         work_items = prepare_subset_work_items(
             args.subset, SUBSET_YAML_DIR, args.job
         )
     else:
-        files = sorted(
-            filename
-            for filename in os.listdir(YAML_DIR)
-            if filename.endswith(".yaml")
-        )
-        if args.job:
-            files = [f for f in files if args.job in f]
-
-        if args.phase == "pilot":
-            phase_ids = {j["job_id"] for j in json.load(open(os.path.join(BENCH_DIR, "pilot_jobs.json")))["jobs"]}
-            files = [f for f in files if yaml_to_job_id(f) in phase_ids]
-        elif args.phase == "remain":
-            phase_ids = {j["job_id"] for j in json.load(open(os.path.join(BENCH_DIR, "remain_jobs.json")))["jobs"]}
-            files = [f for f in files if yaml_to_job_id(f) in phase_ids]
-
         work_items = [
             (
                 filename,
                 load_job_source("pilot", yaml_to_job_id(filename))
-                or load_job_source("remain", yaml_to_job_id(filename)),
+                or load_job_source("remain", yaml_to_job_id(filename))
+                or new_bench_job(filename),
             )
-            for filename in files
+            for filename in select_files(args)
         ]
 
     return filter_work_items_by_duration(work_items, args.duration_filter)
 
 
+def write_new_bench_run_list(work_items, args):
+    """Persist the exact shuffled order for auditing and resume checks."""
+    if args.phase not in ("progressive", "interactive", "new") or args.job:
+        return None
+    seed = getattr(args, "shuffle_seed", DEFAULT_NEW_BENCH_SHUFFLE_SEED)
+    run_list_dir = os.path.join(OUTPUT_BASE, MODEL_ID, "run_lists")
+    os.makedirs(run_list_dir, exist_ok=True)
+    path = os.path.join(run_list_dir, f"{args.phase}_seed_{seed}.json")
+    payload = {
+        "phase": args.phase,
+        "shuffle_seed": seed,
+        "count": len(work_items),
+        "ordering": (
+            "shuffle scenario numbers; for each number run Interactive then Progressive"
+            if args.phase == "new"
+            else "shuffle YAML files"
+        ),
+        "items": [
+            {
+                "position": position,
+                "yaml_file": filename,
+                "job_id": job["job_id"] if job else yaml_to_job_id(filename),
+                "track": job.get("track") if job else None,
+            }
+            for position, (filename, job) in enumerate(work_items, start=1)
+        ],
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return path
+
+
 async def main_async(args):
     work_items = select_work_items(args)
+    run_list_path = write_new_bench_run_list(work_items, args)
     print(f"Jobs: {len(work_items)}")
+    if run_list_path:
+        print(f"Run list: {run_list_path}")
     if args.dry_run:
         for filename, job in work_items:
             job_id = job["job_id"] if job else yaml_to_job_id(filename)
@@ -320,6 +503,9 @@ async def main_async(args):
                     job_id.replace(":", "_"),
                 )
             )
+            if os.path.exists(os.path.join(out_dir, "skip_job.json")):
+                print(f"  [DRY-SKIP] {job_id}: 已标记不重试")
+                continue
             print(f"  [DRY] {job_id} -> {out_dir}")
         return
 
@@ -403,13 +589,29 @@ async def main_async(args):
         await context.close()
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="PixVerse StreamAVBench runner"
+    )
     parser.add_argument("--job", default=None)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--phase", choices=["pilot", "remain", "all"], default="pilot",
-                        help="pilot（50 个，默认）| remain（490 个）| all（540 个）")
+    parser.add_argument(
+        "--phase",
+        choices=[
+            "pilot",
+            "remain",
+            "progressive",
+            "interactive",
+            "new",
+            "all",
+        ],
+        default="pilot",
+        help=(
+            "pilot（默认）| remain | progressive | interactive | "
+            "new（全部新数据）| all"
+        ),
+    )
     duration_group = parser.add_mutually_exclusive_group()
-    for duration_s in (30, 60, 120):
+    for duration_s in (30, 60, 120, 180):
         duration_group.add_argument(
             f"--{duration_s}",
             dest="duration_filter",
@@ -418,6 +620,12 @@ def main():
             help=f"只运行当前 phase 中 duration_s={duration_s} 的任务",
         )
     parser.set_defaults(duration_filter=None)
+    parser.add_argument(
+        "--shuffle-seed",
+        type=int,
+        default=DEFAULT_NEW_BENCH_SHUFFLE_SEED,
+        help="新数据集的固定乱序种子；相同种子会得到相同运行顺序",
+    )
     parser.add_argument(
         "--subset",
         nargs="?",
