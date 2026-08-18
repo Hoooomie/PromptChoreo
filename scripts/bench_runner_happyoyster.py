@@ -55,6 +55,10 @@ YAML_DIR = "bench_yamls"
 SUBSET_YAML_DIR = os.path.join(YAML_DIR, "formal_120s_subset_60cases")
 OUTPUT_BASE = "outputs"
 MODEL_ID = "happyoyster_global"
+COMPLETED_JOBS_PATH = os.path.join(
+    OUTPUT_BASE, MODEL_ID, "completed_jobs.json"
+)
+ARCHIVED_RUN_ROOT = os.path.join(OUTPUT_BASE, MODEL_ID, "跑过")
 MODEL_NAME = "HappyOyster Global"
 ADAPTER_CLASS = HappyOysterGlobalAdapter
 VIDEO_SRC = "outputs/video/ho"
@@ -75,6 +79,89 @@ TEST_SOURCE_JOB_IDS = (
 )
 PLAYBACK_UNAVAILABLE_PREFIX = "site_playback_unavailable:"
 NONRETRYABLE_GENERATION_PREFIX = "site_generation_nonretryable:"
+
+
+def _load_completed_jobs_payload(path):
+    if not os.path.exists(path):
+        return {
+            "version": 1,
+            "model_id": MODEL_ID,
+            "completed_jobs": {},
+        }
+    try:
+        with open(path, encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"cannot read completed-jobs registry: {path}: {exc}"
+        ) from exc
+    if not isinstance(payload, dict) or not isinstance(
+        payload.get("completed_jobs"), dict
+    ):
+        raise RuntimeError(
+            f"invalid completed-jobs registry (expected completed_jobs object): {path}"
+        )
+    return payload
+
+
+def load_completed_job_ids(path=COMPLETED_JOBS_PATH):
+    """Load successful job IDs without consulting per-job output folders."""
+    payload = _load_completed_jobs_payload(path)
+    return {
+        job_id
+        for job_id, record in payload["completed_jobs"].items()
+        if isinstance(record, dict) and record.get("status") == "success"
+    }
+
+
+def mark_job_completed(job_id, path=COMPLETED_JOBS_PATH, completed_at_utc=None):
+    """Atomically persist a successful run independently of its output files."""
+    payload = _load_completed_jobs_payload(path)
+    completed_at_utc = completed_at_utc or datetime.now(timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    payload["version"] = 1
+    payload["model_id"] = MODEL_ID
+    payload["completed_jobs"][job_id] = {
+        "status": "success",
+        "completed_at_utc": completed_at_utc,
+    }
+
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    temporary_path = f"{path}.tmp"
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+    return path
+
+
+def unmark_job_completed(job_id, path=COMPLETED_JOBS_PATH):
+    """Remove one success entry when an explicit rerun begins."""
+    payload = _load_completed_jobs_payload(path)
+    if job_id not in payload["completed_jobs"]:
+        return False
+    del payload["completed_jobs"][job_id]
+
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    temporary_path = f"{path}.tmp"
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+    return True
 
 
 def is_nonretryable_site_failure(exc_or_text):
@@ -114,6 +201,52 @@ def find_nonretryable_failure_reason(out_dir):
         ):
             return reason
     return None
+
+
+def job_output_candidates(out_dir, job_id):
+    """Return active and manually archived output locations for a job."""
+    candidates = [out_dir]
+    archived = archived_job_output_dir(job_id)
+    if archived:
+        if os.path.normcase(os.path.normpath(archived)) != os.path.normcase(
+            os.path.normpath(out_dir)
+        ):
+            candidates.append(archived)
+    return candidates
+
+
+def archived_job_output_dir(job_id):
+    """Map an Interactive/Progressive job to its manual archive folder."""
+    track = str(job_id)[:1].lower()
+    if track not in ("i", "p"):
+        return None
+    return os.path.join(
+        ARCHIVED_RUN_ROOT, track, str(job_id).replace(":", "_")
+    )
+
+
+def find_archived_job_output(job_id):
+    """Return the archive folder when the job was manually marked as run."""
+    archived = archived_job_output_dir(job_id)
+    return archived if archived and os.path.isdir(archived) else None
+
+
+def find_existing_skip_marker(out_dir, job_id):
+    """Find a permanent skip marker in active or archived job outputs."""
+    for candidate in job_output_candidates(out_dir, job_id):
+        marker_path = os.path.join(candidate, "skip_job.json")
+        if os.path.exists(marker_path):
+            return marker_path
+    return None
+
+
+def find_job_nonretryable_failure(out_dir, job_id):
+    """Find a known non-retryable failure in active or archived outputs."""
+    for candidate in job_output_candidates(out_dir, job_id):
+        reason = find_nonretryable_failure_reason(candidate)
+        if reason:
+            return candidate, reason
+    return None, None
 
 
 def write_skip_marker(out_dir, job_id, failure_reason):
@@ -367,11 +500,19 @@ def prepare_attempt(out_dir):
             "final_video.mp4",
             "error_recording.mp4",
             "error_screenshot.png",
+            "skip_job.json",
             "chunks",
         ):
             source = os.path.join(out_dir, name)
             target = os.path.join(archive_dir, name)
             if os.path.exists(source) and not os.path.exists(target):
+                shutil.move(source, target)
+        for name in os.listdir(out_dir):
+            if not name.startswith("error_recording_source."):
+                continue
+            source = os.path.join(out_dir, name)
+            target = os.path.join(archive_dir, name)
+            if os.path.isfile(source) and not os.path.exists(target):
                 shutil.move(source, target)
 
     return (
@@ -421,6 +562,46 @@ def finalize_recording(out_dir, target_duration_s):
     return dst
 
 
+def finalize_error_recording(out_dir):
+    """Preserve the current raw recorder file as failure evidence."""
+    if not os.path.isdir(VIDEO_SRC):
+        return None
+    files = [
+        name
+        for name in os.listdir(VIDEO_SRC)
+        if name.lower().endswith(VIDEO_EXTS)
+        and os.path.getsize(os.path.join(VIDEO_SRC, name)) > 0
+    ]
+    if not files:
+        print("  [WARN] 未找到可保留的失败录屏文件")
+        return None
+
+    src = max(
+        (os.path.join(VIDEO_SRC, name) for name in files),
+        key=os.path.getmtime,
+    )
+    os.makedirs(out_dir, exist_ok=True)
+    dst = os.path.join(out_dir, "error_recording.mp4")
+    print("  [VIDEO] 正在保留失败录屏证据")
+    try:
+        normalized = normalize_full_frame(get_ffmpeg(), src, dst, 0)
+    except Exception as exc:
+        normalized = False
+        print(f"  [WARN] 失败录屏 MP4 转换异常: {exc}")
+    if normalized:
+        print(f"  [VIDEO] 失败录屏已保存: {src} -> {dst}")
+        return dst
+
+    extension = os.path.splitext(src)[1].lower() or ".video"
+    fallback = os.path.join(out_dir, f"error_recording_source{extension}")
+    shutil.copy2(src, fallback)
+    print(
+        "  [VIDEO] MP4 转换失败，已保留原始失败录屏: "
+        f"{fallback}"
+    )
+    return fallback
+
+
 def write_failed_manifest(
     out_dir,
     job_id,
@@ -434,6 +615,12 @@ def write_failed_manifest(
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(os.path.join(out_dir, "chunks"), exist_ok=True)
 
+    error_recording_path = finalize_error_recording(out_dir)
+    error_recording_info = (
+        get_mp4_media_info(error_recording_path)
+        if error_recording_path
+        else {}
+    )
     video_path = os.path.join(out_dir, "final_video.mp4")
     video_exists = os.path.exists(video_path)
     media_info = get_mp4_media_info(video_path) if video_exists else {}
@@ -499,6 +686,16 @@ def write_failed_manifest(
                 if duration is not None
                 else None
             )
+        ),
+        "error_recording": (
+            os.path.basename(error_recording_path)
+            if error_recording_path
+            else None
+        ),
+        "error_recording_duration_s": (
+            round(float(error_recording_info["duration_s"]), 3)
+            if error_recording_info.get("duration_s") is not None
+            else None
         ),
         "native_chunks_observable": False,
         "status": (
@@ -738,11 +935,29 @@ async def run_one(
         await _safe_teardown(adapter, page)
 
 
+def explicit_job_selection(args):
+    """Return whether this invocation explicitly selects one or more jobs."""
+    return bool(getattr(args, "job", None) or getattr(args, "jobs", None))
+
+
+def _requested_job_filenames(args):
+    requested = set()
+    for value in getattr(args, "jobs", None) or []:
+        filename = os.path.basename(str(value)).replace(":", "_")
+        if not filename.endswith(".yaml"):
+            filename += ".yaml"
+        requested.add(filename)
+    return requested
+
+
 def select_files(args):
     files = sorted(
         name for name in os.listdir(YAML_DIR) if name.endswith(".yaml")
     )
-    if args.job:
+    requested_filenames = _requested_job_filenames(args)
+    if requested_filenames:
+        files = [name for name in files if name in requested_filenames]
+    elif args.job:
         files = [name for name in files if args.job in name]
 
     if args.phase in ("pilot", "remain"):
@@ -762,7 +977,19 @@ def select_files(args):
             for name in files
             if name.startswith("P-") or name.startswith("I-")
         ]
-    if args.phase in ("progressive", "interactive", "new") and not args.job:
+    if requested_filenames:
+        selected = set(files)
+        missing = sorted(requested_filenames - selected)
+        if missing:
+            raise ValueError(
+                "requested YAML is missing or incompatible with --phase: "
+                + ", ".join(missing)
+            )
+
+    if (
+        args.phase in ("progressive", "interactive", "new")
+        and not explicit_job_selection(args)
+    ):
         files = order_new_bench_files(
             files,
             args.phase,
@@ -880,7 +1107,10 @@ def select_work_items(args):
 
 def write_new_bench_run_list(work_items, args):
     """Persist the exact shuffled order so a run can be audited or resumed."""
-    if args.phase not in ("progressive", "interactive", "new") or args.job:
+    if (
+        args.phase not in ("progressive", "interactive", "new")
+        or explicit_job_selection(args)
+    ):
         return None
     seed = getattr(
         args, "shuffle_seed", DEFAULT_NEW_BENCH_SHUFFLE_SEED
@@ -964,12 +1194,15 @@ async def launch_runner_context(chromium, user_data_dir):
 async def main_async(args):
     work_items = select_work_items(args)
     run_list_path = write_new_bench_run_list(work_items, args)
+    completed_job_ids = load_completed_job_ids()
+    force_rerun = bool(getattr(args, "force_rerun", False))
     account_pool = getattr(args, "account_pool", None)
     if account_pool is None:
         account_pool = AccountPool(args.accounts_json, args.account_state)
     print(f"Jobs: {len(work_items)}")
     if run_list_path:
         print(f"Run list: {run_list_path}")
+    print(f"Completed registry: {len(completed_job_ids)} successful jobs")
     print(
         "Accounts: "
         f"{account_pool.available_count}/{len(account_pool.accounts)} available; "
@@ -988,13 +1221,27 @@ async def main_async(args):
                     job_id.replace(":", "_"),
                 )
             )
-            if (
-                os.path.exists(os.path.join(out_dir, "skip_job.json"))
-                or find_nonretryable_failure_reason(out_dir)
-            ):
+            if force_rerun:
+                print(f"  [DRY-RERUN] {job_id} -> {out_dir}")
+                continue
+            if job_id in completed_job_ids:
+                print(f"  [DRY-SKIP] {job_id}: 已成功完成（成功账本）")
+                continue
+            archived_job_dir = find_archived_job_output(job_id)
+            if archived_job_dir:
+                print(
+                    f"  [DRY-SKIP] {job_id}: 跑过目录已存在: "
+                    f"{archived_job_dir}"
+                )
+                continue
+            skip_marker_path = find_existing_skip_marker(out_dir, job_id)
+            _, legacy_skip_reason = find_job_nonretryable_failure(
+                out_dir, job_id
+            )
+            if skip_marker_path or legacy_skip_reason:
                 print(
                     f"  [DRY-SKIP] {job_id}: "
-                    "已标记不重试或历史 Oops 失败"
+                    "已标记不重试或历史 Oops 失败（含跑过目录）"
                 )
                 continue
             print(f"  [DRY] {job_id} -> {out_dir}")
@@ -1010,6 +1257,20 @@ async def main_async(args):
         auth_adapter = ADAPTER_CLASS()
         for filename, job in work_items:
             job_id = job["job_id"] if job else yaml_to_job_id(filename)
+            if not force_rerun and job_id in completed_job_ids:
+                print(
+                    f"\n=== {job_id} ===  "
+                    "[SKIP] 已成功完成（成功账本）"
+                )
+                continue
+            archived_job_dir = find_archived_job_output(job_id)
+            if not force_rerun and archived_job_dir:
+                print(
+                    f"\n=== {job_id} ===  "
+                    "[SKIP] 跑过目录已存在: "
+                    f"{archived_job_dir}"
+                )
+                continue
             out_dir = (
                 subset_output_dir(job, MODEL_ID)
                 if args.subset
@@ -1020,32 +1281,26 @@ async def main_async(args):
                     job_id.replace(":", "_"),
                 )
             )
-            manifest_path = os.path.join(out_dir, "run_manifest.json")
-            final_video = os.path.join(out_dir, "final_video.mp4")
-            skip_marker_path = os.path.join(out_dir, "skip_job.json")
-            if os.path.exists(skip_marker_path):
-                print(f"\n=== {job_id} ===  [SKIP] 已标记不重试")
-                continue
-            legacy_skip_reason = find_nonretryable_failure_reason(out_dir)
-            if legacy_skip_reason:
-                write_skip_marker(out_dir, job_id, legacy_skip_reason)
+            skip_marker_path = find_existing_skip_marker(out_dir, job_id)
+            if not force_rerun and skip_marker_path:
                 print(
-                    f"\n=== {job_id} ===  [SKIP] "
-                    "检测到历史 Oops/不可重试失败"
+                    f"\n=== {job_id} ===  [SKIP] 已标记不重试: "
+                    f"{skip_marker_path}"
                 )
                 continue
-            if os.path.exists(manifest_path) and os.path.exists(final_video):
-                with open(manifest_path, encoding="utf-8") as f:
-                    previous = json.load(f)
-                if manifest_matches_current_policy(previous):
-                    print(f"\n=== {job_id} ===  [SKIP] 已完成")
-                    continue
-                if previous.get("status") == "success":
-                    print(
-                        f"\n=== {job_id} ===  "
-                        "[RERUN] 旧结果不是当前 180s 策略"
-                    )
-
+            legacy_dir, legacy_skip_reason = find_job_nonretryable_failure(
+                out_dir, job_id
+            )
+            if not force_rerun and legacy_skip_reason:
+                marker_path = write_skip_marker(
+                    legacy_dir, job_id, legacy_skip_reason
+                )
+                print(
+                    f"\n=== {job_id} ===  [SKIP] "
+                    "检测到历史 Oops/不可重试失败: "
+                    f"{marker_path}"
+                )
+                continue
             print(f"\n=== {job_id} ===")
             if account_pool.available_count <= 0:
                 print(
@@ -1077,6 +1332,11 @@ async def main_async(args):
                 f"{account.ordinal}/{len(account_pool.accounts)} "
                 f"(max {VIDEOS_PER_ACCOUNT} successful videos)"
             )
+            if force_rerun:
+                print("  [RERUN] 已显式要求重跑，忽略旧成功/跳过记录")
+                if unmark_job_completed(job_id):
+                    completed_job_ids.discard(job_id)
+                    print("  [RERUN] 已从成功账本移除旧记录")
             attempt_id, retry_reason = prepare_attempt(out_dir)
             job_start_time_utc = datetime.now(timezone.utc).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
@@ -1130,6 +1390,15 @@ async def main_async(args):
                 )
                 success = True
                 ok_count += 1
+                try:
+                    registry_path = mark_job_completed(job_id)
+                    completed_job_ids.add(job_id)
+                    print(
+                        "  [COMPLETED] 成功账本已更新: "
+                        f"{registry_path}"
+                    )
+                except Exception as exc:
+                    cleanup_errors.append(f"成功账本写入失败: {exc}")
                 print(f"  OK ({time.time() - started:.0f}s)")
             except Exception as exc:
                 failed = True
@@ -1195,6 +1464,20 @@ def main():
         description="Happy Oyster international 180s StreamAVBench runner"
     )
     parser.add_argument("--job", default=None)
+    parser.add_argument(
+        "--jobs",
+        nargs="+",
+        default=None,
+        metavar="YAML",
+        help="精确选择多个 YAML 任务（可省略 .yaml）",
+    )
+    parser.add_argument(
+        "--force-rerun",
+        action="store_true",
+        help=(
+            "强制重跑显式选中的任务；旧结果归档到 attempt_*"
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--accounts-json",
@@ -1262,6 +1545,10 @@ def main():
         help="等待 Happy Oyster 视频开始播放的最大秒数",
     )
     args = parser.parse_args()
+    if args.force_rerun and not explicit_job_selection(args):
+        parser.error("--force-rerun 必须与 --job 或 --jobs 一起使用")
+    if args.subset and args.jobs:
+        parser.error("--jobs 不支持与 --subset 一起使用")
     try:
         args.account_pool = AccountPool(
             args.accounts_json, args.account_state

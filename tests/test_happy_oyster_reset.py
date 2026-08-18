@@ -52,9 +52,11 @@ class FakePage:
 
 class FakeRecorder:
     def __init__(self):
+        self.start_calls = 0
         self.stop_calls = 0
 
     def start(self):
+        self.start_calls += 1
         return True
 
     def stop(self):
@@ -63,7 +65,7 @@ class FakeRecorder:
 
 
 def _make_adapter():
-    return HappyOysterAdapter(
+    adapter = HappyOysterAdapter(
         {
             "_recorder_enabled": True,
             "_recorder_start_hotkey": "ctrl+f1",
@@ -72,6 +74,9 @@ def _make_adapter():
             "_inject_events": [],
         }
     )
+    # Never send real recorder hotkeys from unit tests.
+    adapter._ext_recorder = FakeRecorder()
+    return adapter
 
 
 def test_is_at_input_box_true():
@@ -285,5 +290,23 @@ def test_oops_stops_recorder_and_raises_nonretryable_failure():
     with pytest.raises(RuntimeError, match="site_generation_nonretryable"):
         asyncio.run(a._raise_if_generation_failed(page))
 
+    assert a._ext_recorder.stop_calls == 1
+    assert a._recorder_stopped is True
+
+
+def test_oops_before_normal_recording_captures_short_error_video():
+    a = _make_adapter()
+    a._ext_recorder = FakeRecorder()
+    page = FakeOopsPage()
+
+    async def no_sleep(_delay):
+        return None
+
+    with patch("asyncio.sleep", no_sleep), pytest.raises(
+        RuntimeError, match="site_generation_nonretryable"
+    ):
+        asyncio.run(a._raise_if_generation_failed(page))
+
+    assert a._ext_recorder.start_calls == 1
     assert a._ext_recorder.stop_calls == 1
     assert a._recorder_stopped is True

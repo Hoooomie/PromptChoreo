@@ -15,7 +15,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.promptchoreo.core.scheduler import Scheduler
 from src.promptchoreo.core.timeline import Timeline
 from src.promptchoreo.core.media import get_mp4_media_info
-from src.promptchoreo.adapters.pixverse import PixVerseAdapter
+from src.promptchoreo.adapters.pixverse import (
+    PixVerseAdapter,
+    PixVerseContentPolicyRejection,
+)
 from scripts.bench_subset import (
     DEFAULT_SUBSET_JOBS,
     filter_work_items_by_duration,
@@ -29,11 +32,170 @@ SUBSET_YAML_DIR = os.path.join(YAML_DIR, "formal_120s_subset_60cases")
 OUTPUT_BASE = "outputs"
 MODEL_ID = "pixverse_r1"
 VIDEO_SRC = "outputs/video/pv"
+COMPLETED_JOBS_PATH = os.path.join(
+    OUTPUT_BASE, MODEL_ID, "completed_jobs.json"
+)
+ARCHIVED_RUN_ROOT = os.path.join(OUTPUT_BASE, MODEL_ID, "跑过")
 TARGET_DURATION_S = 180
 DEFAULT_NEW_BENCH_SHUFFLE_SEED = 20260816
 NEW_BENCH_FILENAME_RE = re.compile(
     r"^(?P<track>[IP])-(?P<index>\d+)_(?P=track)-180\.yaml$"
 )
+
+
+def _load_completed_jobs_payload(path):
+    if not os.path.exists(path):
+        return {
+            "version": 1,
+            "model_id": MODEL_ID,
+            "completed_jobs": {},
+        }
+    try:
+        with open(path, encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"cannot read completed-jobs registry: {path}: {exc}"
+        ) from exc
+    if not isinstance(payload, dict) or not isinstance(
+        payload.get("completed_jobs"), dict
+    ):
+        raise RuntimeError(
+            f"invalid completed-jobs registry (expected completed_jobs object): {path}"
+        )
+    return payload
+
+
+def load_completed_job_ids(path=COMPLETED_JOBS_PATH):
+    """Load successful job IDs without consulting per-job output folders."""
+    payload = _load_completed_jobs_payload(path)
+    return {
+        job_id
+        for job_id, record in payload["completed_jobs"].items()
+        if isinstance(record, dict) and record.get("status") == "success"
+    }
+
+
+def mark_job_completed(job_id, path=COMPLETED_JOBS_PATH, completed_at_utc=None):
+    """Atomically persist a successful run independently of its output files."""
+    payload = _load_completed_jobs_payload(path)
+    completed_at_utc = completed_at_utc or datetime.now(timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    payload["version"] = 1
+    payload["model_id"] = MODEL_ID
+    payload["completed_jobs"][job_id] = {
+        "status": "success",
+        "completed_at_utc": completed_at_utc,
+    }
+
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    temporary_path = f"{path}.tmp"
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+    return path
+
+
+def unmark_job_completed(job_id, path=COMPLETED_JOBS_PATH):
+    """Remove one success entry when an explicit rerun begins."""
+    payload = _load_completed_jobs_payload(path)
+    if job_id not in payload["completed_jobs"]:
+        return False
+    del payload["completed_jobs"][job_id]
+
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    temporary_path = f"{path}.tmp"
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+    return True
+
+
+def job_output_candidates(out_dir, job_id):
+    """Return active and manually archived output locations for a job."""
+    candidates = [out_dir]
+    archived = archived_job_output_dir(job_id)
+    if archived:
+        if os.path.normcase(os.path.normpath(archived)) != os.path.normcase(
+            os.path.normpath(out_dir)
+        ):
+            candidates.append(archived)
+    return candidates
+
+
+def archived_job_output_dir(job_id):
+    """Map an Interactive/Progressive job to its manual archive folder."""
+    track = str(job_id)[:1].lower()
+    if track not in ("i", "p"):
+        return None
+    return os.path.join(
+        ARCHIVED_RUN_ROOT, track, str(job_id).replace(":", "_")
+    )
+
+
+def find_archived_job_output(job_id):
+    """Return the archive folder when the job was manually marked as run."""
+    archived = archived_job_output_dir(job_id)
+    return archived if archived and os.path.isdir(archived) else None
+
+
+def find_existing_skip_marker(out_dir, job_id):
+    """Find a permanent skip marker in active or archived job outputs."""
+    for candidate in job_output_candidates(out_dir, job_id):
+        marker_path = os.path.join(candidate, "skip_job.json")
+        if os.path.exists(marker_path):
+            return marker_path
+    return None
+
+
+def find_content_policy_rejection(out_dir):
+    """Find a PixVerse content-policy rejection in current or prior attempts."""
+    candidates = [os.path.join(out_dir, "run_manifest.json")]
+    if os.path.isdir(out_dir):
+        for name in sorted(os.listdir(out_dir), reverse=True):
+            if name.startswith("attempt_"):
+                candidates.append(
+                    os.path.join(out_dir, name, "run_manifest.json")
+                )
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                manifest = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        reason = str(manifest.get("failure_reason") or "")
+        if manifest.get("status") == "failed" and reason.startswith(
+            "content_policy_rejection:"
+        ):
+            return reason
+    return None
+
+
+def find_job_content_policy_rejection(out_dir, job_id):
+    """Find policy rejection in active or manually archived job outputs."""
+    for candidate in job_output_candidates(out_dir, job_id):
+        reason = find_content_policy_rejection(candidate)
+        if reason:
+            return candidate, reason
+    return None, None
+
 
 def load_job_source(phase, job_id):
     path = os.path.join(BENCH_DIR, f"{phase}_jobs.json")
@@ -128,6 +290,7 @@ def prepare_attempt(out_dir):
             "prompt_events.jsonl",
             "chunk_events.jsonl",
             "final_video.mp4",
+            "skip_job.json",
             "chunks",
         ):
             source = os.path.join(out_dir, name)
@@ -149,6 +312,14 @@ def write_failed_manifest(
     video_exists = os.path.exists(video_path)
     media_info = get_mp4_media_info(video_path) if video_exists else {}
     duration = media_info.get("duration_s")
+    content_policy_rejection = isinstance(
+        exc, PixVerseContentPolicyRejection
+    )
+    failure_reason = (
+        str(exc)
+        if content_policy_rejection
+        else f"automation_error: {type(exc).__name__}: {exc}"
+    )
     manifest = {
         "job_id": job_id,
         "case_id": job["case_id"] if job else "",
@@ -168,15 +339,21 @@ def write_failed_manifest(
         },
         "timing": {
             "job_start_time": job_start_time_utc,
-            "initial_prompt_time_s": None,
+            "initial_prompt_time_s": getattr(
+                exc, "initial_prompt_time_s", None
+            ),
             "first_video_chunk_time_s": None,
             "generation_complete_time_s": None,
         },
         "final_video": "final_video.mp4" if video_exists else None,
         "actual_duration_s": round(float(duration), 3) if duration is not None else None,
         "native_chunks_observable": False,
-        "status": "partial" if video_exists else "failed",
-        "failure_reason": f"automation_error: {type(exc).__name__}: {exc}",
+        "status": (
+            "failed"
+            if content_policy_rejection or not video_exists
+            else "partial"
+        ),
+        "failure_reason": failure_reason,
         "retry_reason": None,
         "notes": "Final video, when present, is an external screen recording.",
     }
@@ -187,6 +364,33 @@ def write_failed_manifest(
         if not os.path.exists(path):
             with open(path, "w", encoding="utf-8"):
                 pass
+
+
+def write_content_policy_skip_marker(
+    out_dir, job_id, exc, recorded_at_utc=None
+):
+    """Permanently skip an initial prompt rejected by PixVerse."""
+    if not isinstance(exc, PixVerseContentPolicyRejection):
+        raise TypeError("content-policy skip marker requires policy rejection")
+    os.makedirs(out_dir, exist_ok=True)
+    recorded_at_utc = recorded_at_utc or datetime.now(timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    marker = {
+        "job_id": job_id,
+        "model_id": MODEL_ID,
+        "status": "failed",
+        "skip_future_runs": True,
+        "retryable": False,
+        "failure_reason": str(exc),
+        "evidence": exc.evidence,
+        "recorded_at_utc": recorded_at_utc,
+    }
+    path = os.path.join(out_dir, "skip_job.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(marker, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return path
 
 
 def clear_video_dir():
@@ -394,13 +598,33 @@ def new_bench_job(filename):
     }
 
 
+def explicit_job_selection(args):
+    """Return whether this invocation explicitly selects one or more jobs."""
+    return bool(getattr(args, "job", None) or getattr(args, "jobs", None))
+
+
+def _requested_job_filenames(args):
+    requested = set()
+    for value in getattr(args, "jobs", None) or []:
+        filename = os.path.basename(str(value)).replace(":", "_")
+        if not filename.endswith(".yaml"):
+            filename += ".yaml"
+        requested.add(filename)
+    return requested
+
+
 def select_files(args):
     files = sorted(
         filename
         for filename in os.listdir(YAML_DIR)
         if filename.endswith(".yaml")
     )
-    if args.job:
+    requested_filenames = _requested_job_filenames(args)
+    if requested_filenames:
+        files = [
+            filename for filename in files if filename in requested_filenames
+        ]
+    elif args.job:
         files = [filename for filename in files if args.job in filename]
 
     if args.phase in ("pilot", "remain"):
@@ -423,7 +647,19 @@ def select_files(args):
             if filename.startswith(("I-", "P-"))
         ]
 
-    if args.phase in ("progressive", "interactive", "new") and not args.job:
+    if requested_filenames:
+        selected = set(files)
+        missing = sorted(requested_filenames - selected)
+        if missing:
+            raise ValueError(
+                "requested YAML is missing or incompatible with --phase: "
+                + ", ".join(missing)
+            )
+
+    if (
+        args.phase in ("progressive", "interactive", "new")
+        and not explicit_job_selection(args)
+    ):
         files = order_new_bench_files(
             files,
             args.phase,
@@ -453,7 +689,10 @@ def select_work_items(args):
 
 def write_new_bench_run_list(work_items, args):
     """Persist the exact shuffled order for auditing and resume checks."""
-    if args.phase not in ("progressive", "interactive", "new") or args.job:
+    if (
+        args.phase not in ("progressive", "interactive", "new")
+        or explicit_job_selection(args)
+    ):
         return None
     seed = getattr(args, "shuffle_seed", DEFAULT_NEW_BENCH_SHUFFLE_SEED)
     run_list_dir = os.path.join(OUTPUT_BASE, MODEL_ID, "run_lists")
@@ -487,9 +726,12 @@ def write_new_bench_run_list(work_items, args):
 async def main_async(args):
     work_items = select_work_items(args)
     run_list_path = write_new_bench_run_list(work_items, args)
+    completed_job_ids = load_completed_job_ids()
+    force_rerun = bool(getattr(args, "force_rerun", False))
     print(f"Jobs: {len(work_items)}")
     if run_list_path:
         print(f"Run list: {run_list_path}")
+    print(f"Completed registry: {len(completed_job_ids)} successful jobs")
     if args.dry_run:
         for filename, job in work_items:
             job_id = job["job_id"] if job else yaml_to_job_id(filename)
@@ -503,8 +745,28 @@ async def main_async(args):
                     job_id.replace(":", "_"),
                 )
             )
-            if os.path.exists(os.path.join(out_dir, "skip_job.json")):
-                print(f"  [DRY-SKIP] {job_id}: 已标记不重试")
+            if force_rerun:
+                print(f"  [DRY-RERUN] {job_id} -> {out_dir}")
+                continue
+            if job_id in completed_job_ids:
+                print(f"  [DRY-SKIP] {job_id}: 已成功完成（成功账本）")
+                continue
+            archived_job_dir = find_archived_job_output(job_id)
+            if archived_job_dir:
+                print(
+                    f"  [DRY-SKIP] {job_id}: 跑过目录已存在: "
+                    f"{archived_job_dir}"
+                )
+                continue
+            skip_marker_path = find_existing_skip_marker(out_dir, job_id)
+            _, policy_rejection = find_job_content_policy_rejection(
+                out_dir, job_id
+            )
+            if skip_marker_path or policy_rejection:
+                print(
+                    f"  [DRY-SKIP] {job_id}: "
+                    "已标记不重试或内容策略失败（含跑过目录）"
+                )
                 continue
             print(f"  [DRY] {job_id} -> {out_dir}")
         return
@@ -522,6 +784,21 @@ async def main_async(args):
         for filename, job in work_items:
             job_id = job["job_id"] if job else yaml_to_job_id(filename)
 
+            if not force_rerun and job_id in completed_job_ids:
+                print(
+                    f"\n=== {job_id} ===  "
+                    "[SKIP] 已成功完成（成功账本）"
+                )
+                continue
+            archived_job_dir = find_archived_job_output(job_id)
+            if not force_rerun and archived_job_dir:
+                print(
+                    f"\n=== {job_id} ===  "
+                    "[SKIP] 跑过目录已存在: "
+                    f"{archived_job_dir}"
+                )
+                continue
+
             out_dir = (
                 subset_output_dir(job, MODEL_ID)
                 if args.subset
@@ -532,31 +809,31 @@ async def main_async(args):
                     job_id.replace(":", "_"),
                 )
             )
-            manifest_path = os.path.join(out_dir, "run_manifest.json")
-            skip_marker_path = os.path.join(out_dir, "skip_job.json")
-            if os.path.exists(skip_marker_path):
-                print(f"\n=== {job_id} ===  [SKIP] 已标记不重试")
+            skip_marker_path = find_existing_skip_marker(out_dir, job_id)
+            if not force_rerun and skip_marker_path:
+                print(
+                    f"\n=== {job_id} ===  [SKIP] 已标记不重试: "
+                    f"{skip_marker_path}"
+                )
                 continue
 
-            video_exists = any(
-                f.startswith("final_video.") for f in (os.listdir(out_dir) if os.path.isdir(out_dir) else [])
+            policy_dir, policy_rejection = find_job_content_policy_rejection(
+                out_dir, job_id
             )
-            if os.path.exists(manifest_path):
-                with open(manifest_path, encoding="utf-8") as mf:
-                    m = json.load(mf)
-                content_policy_rejection = (
-                    m.get("status") == "failed"
-                    and str(m.get("failure_reason") or "").startswith(
-                        "content_policy_rejection:"
-                    )
+            if not force_rerun and policy_rejection:
+                print(
+                    f"\n=== {job_id} ===  "
+                    "[SKIP] 已标记内容策略失败: "
+                    f"{policy_dir}"
                 )
-                if (
-                    m.get("status") == "success" and video_exists
-                ) or content_policy_rejection:
-                    print(f"\n=== {job_id} ===  [SKIP] 已完成")
-                    continue
+                continue
 
             print(f"\n=== {job_id} ===")
+            if force_rerun:
+                print("  [RERUN] 已显式要求重跑，忽略旧成功/跳过记录")
+                if unmark_job_completed(job_id):
+                    completed_job_ids.discard(job_id)
+                    print("  [RERUN] 已从成功账本移除旧记录")
             attempt_id = prepare_attempt(out_dir)
             job_start_time_utc = datetime.now(timezone.utc).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
@@ -577,13 +854,27 @@ async def main_async(args):
                     job_start_time_utc,
                     job_start_monotonic,
                 )
-                ok_count += 1
-                print(f"  OK ({time.time() - t0:.0f}s)")
             except Exception as e:
                 write_failed_manifest(
                     out_dir, job_id, job, attempt_id, job_start_time_utc, e
                 )
-                print(f"  FAIL: {e}")
+                if isinstance(e, PixVerseContentPolicyRejection):
+                    marker_path = write_content_policy_skip_marker(
+                        out_dir, job_id, e
+                    )
+                    print(f"  [CONTENT POLICY] {e.evidence}")
+                    print(
+                        "  FAIL: initial prompt rejected; "
+                        f"marked non-retryable -> {marker_path}"
+                    )
+                else:
+                    print(f"  FAIL: {e}")
+            else:
+                registry_path = mark_job_completed(job_id)
+                completed_job_ids.add(job_id)
+                ok_count += 1
+                print(f"  [COMPLETED] 成功账本已更新: {registry_path}")
+                print(f"  OK ({time.time() - t0:.0f}s)")
 
         print(f"\nDone: {ok_count}/{len(work_items)} OK")
         await context.close()
@@ -593,6 +884,20 @@ def main():
         description="PixVerse StreamAVBench runner"
     )
     parser.add_argument("--job", default=None)
+    parser.add_argument(
+        "--jobs",
+        nargs="+",
+        default=None,
+        metavar="YAML",
+        help="精确选择多个 YAML 任务（可省略 .yaml）",
+    )
+    parser.add_argument(
+        "--force-rerun",
+        action="store_true",
+        help=(
+            "强制重跑显式选中的任务；旧结果归档到 attempt_*"
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--phase",
@@ -635,6 +940,10 @@ def main():
         help="运行正式 60-case 120s 子集；不传路径时使用默认私有 JSONL",
     )
     args = parser.parse_args()
+    if args.force_rerun and not explicit_job_selection(args):
+        parser.error("--force-rerun 必须与 --job 或 --jobs 一起使用")
+    if args.subset and args.jobs:
+        parser.error("--jobs 不支持与 --subset 一起使用")
     asyncio.run(main_async(args))
 
 if __name__ == "__main__":

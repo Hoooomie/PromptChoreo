@@ -181,6 +181,10 @@ python scripts/bench_runner.py --phase remain --120
 # 单个 job（使用 YAML 文件名格式）
 python scripts/bench_runner_happyoyster.py --phase remain --180 --job EXAMPLE_JOB_SPLIT
 python scripts/bench_runner.py --phase remain --job EXAMPLE_JOB_SPLIT
+
+# 精确指定多条并强制重跑（旧结果自动归档到 attempt_*）
+python scripts/bench_runner_happyoyster.py --phase new --180 --jobs I-0001_I-180 P-0001_P-180 --force-rerun
+python scripts/bench_runner.py --phase new --180 --jobs I-0001_I-180 P-0001_P-180 --force-rerun
 ```
 
 成功 job 会自动跳过。结果分别保存在：
@@ -211,7 +215,9 @@ outputs/pixverse_r1/<phase>/
   `ERR_CONNECTION_CLOSED` 立即终止。
 - 检测到 `Oops: Something went wrong` 或
   `This scene can't be played right now` 时，立即停止当前录屏、写入失败原因和
-  `skip_job.json`，退出当前账号后继续下一个任务，不中断整批。重启时会同时
+  `skip_job.json`，并将失败画面保存为 `error_recording.mp4`。如果错误在正常录屏
+  启动前出现，会额外短录制错误画面作为证据。退出当前账号后继续下一个任务，
+  不中断整批。重启时会同时
   扫描当前 manifest 和历史 `attempt_*`，旧格式 Oops 失败也不会再次执行。
 - 最终视频保留完整录屏画面，不做空间裁剪。允许浏览器客户区边框造成的少量
   分辨率差异（每条边最多 32 像素），例如 `2544x1432`。
@@ -221,6 +227,7 @@ outputs/pixverse_r1/<phase>/
 ```text
 outputs/happyoyster_global/<phase>/<job_id>/
 ├── final_video.mp4       # 成功结果
+├── error_recording.mp4   # 失败时的完整/短录屏证据
 ├── run_manifest.json     # 状态、时间、分辨率和失败原因
 ├── prompt_events.jsonl   # initial prompt 与注入提交时间
 ├── chunk_events.jsonl    # 原生 chunk 可观察性记录

@@ -14,12 +14,38 @@ from .base import SiteAdapter
 from ..credentials import get_browser_data_dir, get_credentials
 
 
+class PixVerseContentPolicyRejection(RuntimeError):
+    """PixVerse rejected the initial prompt before generation started."""
+
+    failure_reason = (
+        "content_policy_rejection: initial prompt rejected by PixVerse"
+    )
+
+    def __init__(
+        self,
+        evidence: str,
+        initial_prompt_time_s: float | None = None,
+    ) -> None:
+        super().__init__(self.failure_reason)
+        self.evidence = evidence
+        self.initial_prompt_time_s = initial_prompt_time_s
+
+
 class PixVerseAdapter(SiteAdapter):
 
     name = "pixverse"
     resets_clock = True
     user_data_dir = get_browser_data_dir("pixverse")
     URL = "https://world.pixverse.video/generate/"
+    CONTENT_POLICY_MESSAGE = (
+        "Your content may not meet our guidelines. "
+        "Please revise and try again."
+    )
+    CONTENT_POLICY_PATTERN = re.compile(
+        r"your\s+content\s+may\s+not\s+meet\s+our\s+guidelines\.\s*"
+        r"please\s+revise\s+and\s+try\s+again\.?",
+        re.IGNORECASE,
+    )
 
     SELECTORS = {
         "landing_textarea": "textarea[placeholder*='Describe']",
@@ -251,21 +277,15 @@ class PixVerseAdapter(SiteAdapter):
         input_loc = page.locator(self.SELECTORS["landing_textarea"])
         await input_loc.fill(prompt)
         await asyncio.sleep(0.5)
+        # The red policy toast can disappear before the next Playwright poll.
+        # Arm a DOM observer before submission and latch any matching text.
+        await self._arm_content_policy_observer(page)
         await self._click_star(page)
         self.initial_prompt_time_s = round(
             time.monotonic() - self._job_start_monotonic, 1
         )
 
-        print("[DEBUG] 等待生成页就绪...", file=sys.stderr)
-        deadline = time.monotonic() + self._max_queue_wait
-        while time.monotonic() < deadline:
-            body = await page.evaluate("() => document.body.innerText || ''")
-            if "What would you like to happen" in body or "left in your session" in body or "Preparing" in body:
-                print("[DEBUG] 生成页就绪", file=sys.stderr)
-                break
-            await asyncio.sleep(2)
-        else:
-            raise RuntimeError(f"等待生成页超时 {self._max_queue_wait}s")
+        await self._wait_for_generation_page(page)
 
         # 生成页刚就绪，给 UI 一点时间稳定
         await asyncio.sleep(2)
@@ -313,6 +333,111 @@ class PixVerseAdapter(SiteAdapter):
 
         await self._run_injection_loop(page, events, end_delay, hotkey_lag)
         self._injections_done = True
+
+    @classmethod
+    def _content_policy_evidence(cls, body_text: str) -> str | None:
+        """Return canonical evidence when the PixVerse rejection toast exists."""
+        normalized = re.sub(r"\s+", " ", body_text or "").strip()
+        if cls.CONTENT_POLICY_PATTERN.search(normalized):
+            return cls.CONTENT_POLICY_MESSAGE
+        return None
+
+    async def _arm_content_policy_observer(self, page: Page) -> None:
+        """Latch a transient policy toast, starting before prompt submission."""
+        await page.evaluate(
+            r"""(canonicalMessage) => {
+                const key = '__promptChoreoPixVersePolicyObserver';
+                const previous = window[key];
+                if (previous && previous.observer) previous.observer.disconnect();
+
+                const state = {
+                    evidence: null,
+                    detectedAtMs: null,
+                    observer: null,
+                };
+                const pattern = /your\s+content\s+may\s+not\s+meet\s+our\s+guidelines\.\s*please\s+revise\s+and\s+try\s+again\.?/i;
+                const inspect = (node) => {
+                    if (state.evidence || !node) return;
+                    const text = String(
+                        node.innerText || node.textContent || ''
+                    ).replace(/\s+/g, ' ').trim();
+                    if (pattern.test(text)) {
+                        state.evidence = canonicalMessage;
+                        state.detectedAtMs = Date.now();
+                    }
+                };
+                state.observer = new MutationObserver((records) => {
+                    for (const record of records) {
+                        if (record.type === 'characterData') {
+                            inspect(record.target && record.target.parentElement);
+                        }
+                        for (const node of record.addedNodes || []) inspect(node);
+                    }
+                });
+                state.observer.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true,
+                });
+                inspect(document.body);
+                window[key] = state;
+            }""",
+            self.CONTENT_POLICY_MESSAGE,
+        )
+
+    async def _read_content_policy_observer(self, page: Page) -> str | None:
+        """Read the latched toast even if its red notification has vanished."""
+        try:
+            return await page.evaluate(
+                """() => {
+                    const state = window.__promptChoreoPixVersePolicyObserver;
+                    return state ? state.evidence : null;
+                }"""
+            )
+        except Exception:
+            return None
+
+    async def _disarm_content_policy_observer(self, page: Page) -> None:
+        try:
+            await page.evaluate(
+                """() => {
+                    const key = '__promptChoreoPixVersePolicyObserver';
+                    const state = window[key];
+                    if (state && state.observer) state.observer.disconnect();
+                    delete window[key];
+                }"""
+            )
+        except Exception:
+            pass
+
+    async def _wait_for_generation_page(self, page: Page) -> None:
+        """Wait for generation, failing fast on initial-prompt rejection."""
+        print("[DEBUG] 等待生成页就绪...", file=sys.stderr)
+        deadline = time.monotonic() + self._max_queue_wait
+        try:
+            while time.monotonic() < deadline:
+                latched = self._content_policy_evidence(
+                    await self._read_content_policy_observer(page) or ""
+                )
+                body = await page.evaluate("() => document.body.innerText || ''")
+                evidence = latched or self._content_policy_evidence(body)
+                if evidence:
+                    print(f"[ERROR] {evidence}", file=sys.stderr)
+                    raise PixVerseContentPolicyRejection(
+                        evidence,
+                        initial_prompt_time_s=self.initial_prompt_time_s,
+                    )
+                if (
+                    "What would you like to happen" in body
+                    or "left in your session" in body
+                    or "Preparing" in body
+                ):
+                    print("[DEBUG] 生成页就绪", file=sys.stderr)
+                    return
+                await asyncio.sleep(0.5)
+            raise RuntimeError(f"等待生成页超时 {self._max_queue_wait}s")
+        finally:
+            await self._disarm_content_policy_observer(page)
 
     async def _click_star(self, page: Page) -> None:
         for sel in [self.SELECTORS["star_button"], self.SELECTORS["star_button_fallback"]]:
