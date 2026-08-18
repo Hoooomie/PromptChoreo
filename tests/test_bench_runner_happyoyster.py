@@ -2,6 +2,8 @@ import asyncio
 import json
 from types import SimpleNamespace
 
+import scripts.bench_runner_happyoyster as happyoyster_runner
+
 from scripts.bench_runner_happyoyster import (
     ADAPTER_CLASS,
     DEFAULT_ACCOUNTS_JSON,
@@ -10,13 +12,20 @@ from scripts.bench_runner_happyoyster import (
     TRACK_B_INJECTION_INTERVAL_S,
     build_run_plan,
     clear_browser_identity,
+    find_archived_job_output,
+    find_existing_skip_marker,
     find_nonretryable_failure_reason,
+    finalize_error_recording,
+    load_completed_job_ids,
     manifest_matches_current_policy,
+    mark_job_completed,
     is_acceptable_recording_resolution,
     new_bench_job,
     order_new_bench_files,
     prepare_attempt,
+    select_files,
     select_work_items,
+    unmark_job_completed,
     write_failed_manifest,
 )
 from src.promptchoreo.adapters.happy_oyster_global import (
@@ -30,6 +39,138 @@ def test_runner_defaults_to_international_site():
     assert DEFAULT_ACCOUNTS_JSON == "happyoyster_accounts.json"
 
 
+def test_completed_registry_does_not_depend_on_job_output_folder(tmp_path):
+    registry = tmp_path / "state" / "completed_jobs.json"
+    job_id = "I-0115:I-180"
+
+    mark_job_completed(
+        job_id,
+        path=str(registry),
+        completed_at_utc="2026-08-17T03:04:05Z",
+    )
+
+    assert load_completed_job_ids(str(registry)) == {job_id}
+    assert not (tmp_path / "interactive" / "I-0115_I-180").exists()
+    payload = json.loads(registry.read_text(encoding="utf-8"))
+    assert payload["completed_jobs"][job_id] == {
+        "status": "success",
+        "completed_at_utc": "2026-08-17T03:04:05Z",
+    }
+
+
+def test_completed_registry_preserves_previous_successes(tmp_path):
+    registry = tmp_path / "completed_jobs.json"
+
+    mark_job_completed("I-0001:I-180", path=str(registry))
+    mark_job_completed("P-0001:P-180", path=str(registry))
+
+    assert load_completed_job_ids(str(registry)) == {
+        "I-0001:I-180",
+        "P-0001:P-180",
+    }
+
+
+def test_explicit_rerun_can_remove_one_previous_success(tmp_path):
+    registry = tmp_path / "completed_jobs.json"
+    mark_job_completed("I-0089:I-180", path=str(registry))
+    mark_job_completed("I-0119:I-180", path=str(registry))
+
+    assert unmark_job_completed(
+        "I-0089:I-180", path=str(registry)
+    ) is True
+    assert load_completed_job_ids(str(registry)) == {"I-0119:I-180"}
+    assert unmark_job_completed(
+        "I-0089:I-180", path=str(registry)
+    ) is False
+
+
+def test_multiple_jobs_are_selected_exactly_without_requiring_i_p_pairs():
+    requested = [
+        "I-0089_I-180",
+        "I-0119_I-180",
+        "I-0134_I-180",
+        "P-0103_P-180",
+    ]
+    args = SimpleNamespace(
+        phase="new",
+        job=None,
+        jobs=requested,
+        shuffle_seed=20260816,
+    )
+
+    assert select_files(args) == [f"{name}.yaml" for name in requested]
+
+
+def test_prepare_attempt_archives_skip_marker_for_explicit_rerun(tmp_path):
+    job_dir = tmp_path / "I-0134_I-180"
+    job_dir.mkdir()
+    (job_dir / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "attempt_id": "attempt_001",
+                "status": "failed",
+                "failure_reason": "site_generation_nonretryable: rejected",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (job_dir / "skip_job.json").write_text("{}", encoding="utf-8")
+
+    attempt_id, _ = prepare_attempt(str(job_dir))
+
+    assert attempt_id == "attempt_002"
+    assert (job_dir / "attempt_001" / "run_manifest.json").exists()
+    assert (job_dir / "attempt_001" / "skip_job.json").exists()
+    assert not (job_dir / "skip_job.json").exists()
+
+
+def test_skip_marker_is_found_in_manually_archived_run_folder(
+    tmp_path, monkeypatch
+):
+    archived_root = tmp_path / "跑过"
+    monkeypatch.setattr(
+        happyoyster_runner, "ARCHIVED_RUN_ROOT", str(archived_root)
+    )
+    archived_job = archived_root / "i" / "I-0112_I-180"
+    archived_job.mkdir(parents=True)
+    marker = archived_job / "skip_job.json"
+    marker.write_text("{}", encoding="utf-8")
+
+    active_job = tmp_path / "interactive" / "I-0112_I-180"
+    assert find_existing_skip_marker(
+        str(active_job), "I-0112:I-180"
+    ) == str(marker)
+
+
+def test_archived_job_folder_alone_marks_happyoyster_job_as_run(
+    tmp_path, monkeypatch
+):
+    archived_root = tmp_path / "跑过"
+    monkeypatch.setattr(
+        happyoyster_runner, "ARCHIVED_RUN_ROOT", str(archived_root)
+    )
+    archived_job = archived_root / "i" / "I-0126_I-180"
+    archived_job.mkdir(parents=True)
+
+    assert find_archived_job_output("I-0126:I-180") == str(archived_job)
+
+
+def test_progressive_archive_uses_lowercase_p_folder(tmp_path, monkeypatch):
+    archived_root = tmp_path / "跑过"
+    monkeypatch.setattr(
+        happyoyster_runner, "ARCHIVED_RUN_ROOT", str(archived_root)
+    )
+    archived_job = archived_root / "p" / "P-0025_P-180"
+    archived_job.mkdir(parents=True)
+    marker = archived_job / "skip_job.json"
+    marker.write_text("{}", encoding="utf-8")
+
+    assert find_existing_skip_marker(
+        str(tmp_path / "progressive" / "P-0025_P-180"),
+        "P-0025:P-180",
+    ) == str(marker)
+
+
 def test_recording_resolution_accepts_browser_border_delta():
     assert is_acceptable_recording_resolution(
         {"width": 2560, "height": 1440}
@@ -39,6 +180,35 @@ def test_recording_resolution_accepts_browser_border_delta():
     )
     assert not is_acceptable_recording_resolution(
         {"width": 1920, "height": 1080}
+    )
+
+
+def test_failure_recording_is_copied_into_job_directory(
+    tmp_path, monkeypatch
+):
+    source_dir = tmp_path / "raw"
+    source_dir.mkdir()
+    source = source_dir / "capture.webm"
+    source.write_bytes(b"raw-video")
+    output_dir = tmp_path / "job"
+
+    def fake_normalize(_ffmpeg, src, dst, duration_s):
+        assert src == str(source)
+        assert duration_s == 0
+        with open(dst, "wb") as f:
+            f.write(b"normalized-error-video")
+        return True
+
+    monkeypatch.setattr(happyoyster_runner, "VIDEO_SRC", str(source_dir))
+    monkeypatch.setattr(
+        happyoyster_runner, "normalize_full_frame", fake_normalize
+    )
+
+    result = finalize_error_recording(str(output_dir))
+
+    assert result == str(output_dir / "error_recording.mp4")
+    assert (output_dir / "error_recording.mp4").read_bytes() == (
+        b"normalized-error-video"
     )
 
 
@@ -214,7 +384,12 @@ def test_prepare_attempt_archives_site_failure_evidence(tmp_path):
     assert (job_dir / "attempt_001" / "error_screenshot.png").exists()
 
 
-def test_site_generation_failure_manifest_has_no_final_video(tmp_path):
+def test_site_generation_failure_manifest_has_no_final_video(
+    tmp_path, monkeypatch
+):
+    empty_raw = tmp_path / "raw"
+    empty_raw.mkdir()
+    monkeypatch.setattr(happyoyster_runner, "VIDEO_SRC", str(empty_raw))
     error = RuntimeError(
         "site_generation_failed: HappyOyster displayed an error"
     )
@@ -262,7 +437,12 @@ def test_site_generation_failure_manifest_has_no_final_video(tmp_path):
     assert manifest["target_duration_s"] == 180.0
 
 
-def test_playback_unavailable_writes_nonretryable_skip_marker(tmp_path):
+def test_playback_unavailable_writes_nonretryable_skip_marker(
+    tmp_path, monkeypatch
+):
+    empty_raw = tmp_path / "raw"
+    empty_raw.mkdir()
+    monkeypatch.setattr(happyoyster_runner, "VIDEO_SRC", str(empty_raw))
     error = RuntimeError(
         "site_playback_unavailable: HappyOyster displayed \"This scene "
         "can't be played right now\"; only the first-frame preview was "
@@ -301,7 +481,10 @@ def test_playback_unavailable_writes_nonretryable_skip_marker(tmp_path):
     assert skip["retryable"] is False
 
 
-def test_oops_writes_nonretryable_skip_marker(tmp_path):
+def test_oops_writes_nonretryable_skip_marker(tmp_path, monkeypatch):
+    empty_raw = tmp_path / "raw"
+    empty_raw.mkdir()
+    monkeypatch.setattr(happyoyster_runner, "VIDEO_SRC", str(empty_raw))
     error = RuntimeError(
         "site_generation_nonretryable: HappyOyster displayed "
         "'Oops / Something went wrong' and produced no valid video"

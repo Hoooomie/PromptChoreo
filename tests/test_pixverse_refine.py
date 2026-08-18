@@ -11,7 +11,10 @@ from unittest.mock import patch
 
 import pytest
 
-from promptchoreo.adapters.pixverse import PixVerseAdapter
+from promptchoreo.adapters.pixverse import (
+    PixVerseAdapter,
+    PixVerseContentPolicyRejection,
+)
 
 
 class FakeLocatorPV:
@@ -91,6 +94,92 @@ def test_submit_prompt_skips_when_injections_done():
     # 守卫应直接返回，绝不调用 _start_session / _inject_command
     assert calls == []
     assert a.is_done is True
+
+
+def test_content_policy_message_matches_line_break_or_no_space():
+    canonical = (
+        "Your content may not meet our guidelines.\n"
+        "Please revise and try again."
+    )
+    compact = (
+        "Your content may not meet our guidelines."
+        "Please revise and try again"
+    )
+
+    assert PixVerseAdapter._content_policy_evidence(canonical) == (
+        PixVerseAdapter.CONTENT_POLICY_MESSAGE
+    )
+    assert PixVerseAdapter._content_policy_evidence(compact) == (
+        PixVerseAdapter.CONTENT_POLICY_MESSAGE
+    )
+    assert PixVerseAdapter._content_policy_evidence("Preparing 10%") is None
+
+
+def test_wait_for_generation_page_raises_content_policy_rejection():
+    adapter = PixVerseAdapter({"max_queue_wait": 5})
+    adapter.initial_prompt_time_s = 1.2
+
+    class RejectedPage:
+        async def evaluate(self, *args, **kwargs):
+            return (
+                "Your content may not meet our guidelines.\n"
+                "Please revise and try again."
+            )
+
+    with pytest.raises(PixVerseContentPolicyRejection) as raised:
+        asyncio.run(adapter._wait_for_generation_page(RejectedPage()))
+
+    assert raised.value.evidence == PixVerseAdapter.CONTENT_POLICY_MESSAGE
+    assert raised.value.initial_prompt_time_s == 1.2
+    assert str(raised.value).startswith("content_policy_rejection:")
+
+
+def test_policy_observer_is_armed_before_initial_prompt_submit():
+    adapter = PixVerseAdapter({})
+    order = []
+
+    class InputLocator:
+        async def fill(self, value):
+            order.append(("fill", value))
+
+    class Page:
+        def locator(self, selector):
+            return InputLocator()
+
+    async def ensure_mode(page):
+        order.append("mode")
+
+    async def arm(page):
+        order.append("arm")
+
+    async def click(page):
+        order.append("click")
+
+    async def reject(page):
+        order.append("wait")
+        raise PixVerseContentPolicyRejection(
+            PixVerseAdapter.CONTENT_POLICY_MESSAGE
+        )
+
+    async def instant_sleep(*args, **kwargs):
+        return None
+
+    adapter._ensure_mode = ensure_mode
+    adapter._arm_content_policy_observer = arm
+    adapter._click_star = click
+    adapter._wait_for_generation_page = reject
+
+    with patch("asyncio.sleep", instant_sleep):
+        with pytest.raises(PixVerseContentPolicyRejection):
+            asyncio.run(adapter._start_session(Page(), "initial"))
+
+    assert order == [
+        "mode",
+        ("fill", "initial"),
+        "arm",
+        "click",
+        "wait",
+    ]
 
 
 def test_run_injection_loop_injects_at_clock_times():

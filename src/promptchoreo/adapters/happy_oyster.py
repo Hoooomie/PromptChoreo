@@ -468,14 +468,27 @@ class HappyOysterAdapter(SiteAdapter):
             "Oops / Something went wrong",
             "Oops / 出了点问题",
         )
-        if (
-            playback_unavailable or nonretryable_oops
-        ) and self.recording_start_monotonic is not None:
+        if playback_unavailable or nonretryable_oops:
             print(
                 f"[ERROR] 检测到不可重试的网站错误: {message}；"
-                "立即停止录屏",
+                "保留失败录屏证据",
                 file=sys.stderr,
             )
+            if (
+                self.recording_start_monotonic is None
+                and self._ext_recorder is not None
+                and not self._recorder_stopped
+            ):
+                ok = self._ext_recorder.start()
+                print(
+                    "[Recorder] 错误画面短录屏启动结果: "
+                    f"{'成功' if ok else '失败'}",
+                    file=sys.stderr,
+                )
+                if ok:
+                    # Keep a short visible record even when the error appears
+                    # before the normal REC-based recording zero point.
+                    await asyncio.sleep(2.0)
             await self._recorder_stop(page)
         if not playback_unavailable:
             self.first_video_chunk_time_s = None
